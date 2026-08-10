@@ -1223,7 +1223,7 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
+  reader.onload = async ev => {
     const newRecords = parseKakeiboCSV(ev.target.result);
     if (newRecords.length === 0) {
       alert('読み込めるデータがありませんでした。\n対応フォーマット: ご利用日,データ処理日,ご利用内容,…');
