@@ -422,7 +422,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithRedirect(provider);
   } catch(e) {
-    document.getElementById('login-error').textContent = 'ログインに失敗しました';
+    document.getElementById('login-error').textContent = 'エラー: ' + e.code + ' / ' + e.message;
     document.getElementById('login-error').style.display = 'block';
   }
 });
@@ -433,12 +433,12 @@ auth.getRedirectResult().then(result => {
     const email = result.user.email;
     if (!ALLOWED_EMAILS.includes(email)) {
       auth.signOut();
-      document.getElementById('login-error').textContent = 'このアカウントは許可されていません';
+      document.getElementById('login-error').textContent = 'このアカウントは許可されていません: ' + email;
       document.getElementById('login-error').style.display = 'block';
     }
   }
 }).catch(e => {
-  document.getElementById('login-error').textContent = 'ログインに失敗しました';
+  document.getElementById('login-error').textContent = 'エラー: ' + e.code + ' / ' + e.message;
   document.getElementById('login-error').style.display = 'block';
 });
 
