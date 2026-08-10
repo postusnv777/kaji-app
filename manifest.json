@@ -1,0 +1,16 @@
+{
+  "name": "家事・家計管理",
+  "short_name": "家事管理",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#4f86c6",
+  "icons": [
+    {
+      "src": "icon/20260515_105329.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
