@@ -228,9 +228,23 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
+
+<!-- ログイン画面 -->
+<div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:20px;">
+  <h1 style="font-size:2rem;margin-bottom:8px;">🏠</h1>
+  <h2 style="font-size:1.2rem;margin-bottom:24px;color:#1a1a2e;">家事・家計管理</h2>
+  <button id="btn-login" style="padding:12px 32px;background:#4285f4;color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+    Googleでログイン
+  </button>
+  <p id="login-error" style="color:#ef4444;font-size:0.85rem;margin-top:12px;display:none;"></p>
+</div>
+
+<!-- メインアプリ（ログイン後に表示） -->
+<div id="app-main" style="display:none;">
 
 <header id="app-header">
   <h1 id="header-title">🏠 家事・家計管理</h1>
@@ -366,6 +380,8 @@
   </div>
 </div>
 
+</div><!-- /app-main -->
+
 <script>
 
 // ============================================================
@@ -393,7 +409,57 @@ const firebaseConfig = {
   appId: "1:418084439735:web:2aa9f697a54e99f2f22f32"
 };
 firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.firestore();
+
+// ============================================================
+//  認証（Googleログイン）
+// ============================================================
+const ALLOWED_EMAILS = ['post.usnv777@gmail.com', 'g1712060@gmail.com'];
+
+document.getElementById('btn-login').addEventListener('click', async () => {
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    const result = await auth.signInWithPopup(provider);
+    const email = result.user.email;
+    if (!ALLOWED_EMAILS.includes(email)) {
+      await auth.signOut();
+      document.getElementById('login-error').textContent = 'このアカウントは許可されていません';
+      document.getElementById('login-error').style.display = 'block';
+      return;
+    }
+    showApp();
+  } catch(e) {
+    document.getElementById('login-error').textContent = 'ログインに失敗しました';
+    document.getElementById('login-error').style.display = 'block';
+  }
+});
+
+// ログイン状態の監視
+auth.onAuthStateChanged(user => {
+  if (user && ALLOWED_EMAILS.includes(user.email)) {
+    showApp();
+  }
+});
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-main').style.display = 'block';
+  initApp();
+}
+
+let appInitialized = false;
+async function initApp() {
+  if (appInitialized) return;
+  appInitialized = true;
+  // 家事管理データ読み込み
+  kajiSchedules   = await KajiStorage.loadSchedules();
+  kajiCompletions = await KajiStorage.loadCompletions();
+  renderKajiAll();
+  // 家計簿データ読み込み
+  kakeiboRecords = await KakeiboStorage.load();
+  if (kakeiboRecords.length > 0) renderKakeibo();
+}
 
 // ============================================================
 //  家事管理 — データ層
@@ -1007,19 +1073,6 @@ document.getElementById('kaji-sub-nav').addEventListener('click', e => {
 // ============================================================
 //  初期化
 // ============================================================
-document.getElementById('today-date') && (document.getElementById('today-date').textContent = '');
-
-(async () => {
-  // 家事管理データ読み込み
-  kajiSchedules   = await KajiStorage.loadSchedules();
-  kajiCompletions = await KajiStorage.loadCompletions();
-  renderKajiAll();
-
-  // 家計簿データ読み込み
-  kakeiboRecords = await KakeiboStorage.load();
-  if (kakeiboRecords.length > 0) renderKakeibo();
-})();
-
 // Service Worker登録
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js');
