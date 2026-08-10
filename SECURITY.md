@@ -19,7 +19,7 @@
 ### 方針
 - Firebase のフロントエンド用 `apiKey` はクライアント公開前提のキーであり、秘匿対象ではない
 - セキュリティはキーの秘匿ではなく、以下の多層防御で担保する：
-  1. **APIキーのリファラー制限**（許可ドメイン: `https://postusnv777.github.io/*`）
+  1. **APIキーのリファラー制限**（許可ドメイン: `https://postusnv777.github.io/*`, `https://kaji-app-dbd61.firebaseapp.com/*`, `https://accounts.google.com/*`）
   2. **APIキーのAPI制限**（Identity Toolkit API / Cloud Firestore API / Token Service API のみ）
   3. **Firebase Authentication**（ALLOWED_EMAILS によるログイン制限）
   4. **Firestore セキュリティルール**（許可メールアドレスのみ読み書き可）
