@@ -420,19 +420,26 @@ const ALLOWED_EMAILS = ['post.usnv777@gmail.com', 'g1712060@gmail.com'];
 document.getElementById('btn-login').addEventListener('click', async () => {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    const result = await auth.signInWithPopup(provider);
-    const email = result.user.email;
-    if (!ALLOWED_EMAILS.includes(email)) {
-      await auth.signOut();
-      document.getElementById('login-error').textContent = 'このアカウントは許可されていません';
-      document.getElementById('login-error').style.display = 'block';
-      return;
-    }
-    showApp();
+    await auth.signInWithRedirect(provider);
   } catch(e) {
     document.getElementById('login-error').textContent = 'ログインに失敗しました';
     document.getElementById('login-error').style.display = 'block';
   }
+});
+
+// リダイレクト後の結果処理
+auth.getRedirectResult().then(result => {
+  if (result.user) {
+    const email = result.user.email;
+    if (!ALLOWED_EMAILS.includes(email)) {
+      auth.signOut();
+      document.getElementById('login-error').textContent = 'このアカウントは許可されていません';
+      document.getElementById('login-error').style.display = 'block';
+    }
+  }
+}).catch(e => {
+  document.getElementById('login-error').textContent = 'ログインに失敗しました';
+  document.getElementById('login-error').style.display = 'block';
 });
 
 // ログイン状態の監視
