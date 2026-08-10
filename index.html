@@ -208,10 +208,9 @@
       padding: 4px; border-radius: 6px; flex-shrink: 0;
     }
     .btn-delete:hover { color: var(--danger); }
+    .kcat-外食        { background:#ffedd5; color:#9a3412; }
     .kcat-娯楽        { background:#dbeafe; color:#1e40af; }
-    .kcat-昼食コンビニ { background:#fef9c3; color:#854d0e; }
-    .kcat-昼食外食    { background:#fde68a; color:#92400e; }
-    .kcat-夕食外食    { background:#ffedd5; color:#9a3412; }
+    .kcat-車          { background:#f1f5f9; color:#475569; }
     .kcat-スーパー    { background:#dcfce7; color:#166534; }
     .kcat-病院        { background:#ffe4e6; color:#be123c; }
     .kcat-水道代      { background:#e0f2fe; color:#0369a1; }
@@ -367,8 +366,8 @@
     <input type="number" id="edit-amount" />
     <label>カテゴリ</label>
     <select id="edit-category">
-      <option>娯楽</option><option>昼食コンビニ</option><option>昼食外食</option>
-      <option>夕食外食</option><option>スーパー</option><option>病院</option>
+      <option>外食</option><option>娯楽</option><option>車</option>
+      <option>スーパー</option><option>病院</option>
       <option>水道代</option><option>電気代</option><option>ガス代</option>
       <option>積立</option><option>インターネット代</option><option>家賃</option>
       <option>振替</option><option>その他</option>
@@ -782,10 +781,9 @@ async function onToggleWeek(schId, dateStr) {
 // ============================================================
 const KAKEIBO_CATEGORIES = [
   { name: '振替',           color: '#9ca3af', keywords: ['口座振替', '前回分'] },
-  { name: '娯楽',           color: '#3b82f6', keywords: ['シネマ','映画','ゲーム','アミューズ','カラオケ','ボウリング','イオンシネマ','駐車場','パーキング','ENEOS','Ｅｎｅｏｓ','エネオス','ガソリン','洗車','オートバックス','イエローハット'] },
-  { name: '昼食コンビニ',   color: '#fbbf24', keywords: ['セブン','ファミマ','ローソン','ミニストップ','デイリーヤマザキ'] },
-  { name: '昼食外食',       color: '#f59e0b', keywords: ['マクドナルド','すき家','吉野家','モスバーガー','ケンタッキー','サブウェイ','ほっともっと','松屋'] },
-  { name: '夕食外食',       color: '#f97316', keywords: ['ねぎし','バーミヤン','にくの助','デニーズ','ガスト','サイゼリヤ','レストラン','izakaya','居酒屋','しゃぶ','やきにく','焼肉','寿司','すし','ラーメン'] },
+  { name: '外食',           color: '#f97316', keywords: ['セブン','ファミマ','ローソン','ミニストップ','デイリーヤマザキ','マクドナルド','すき家','吉野家','モスバーガー','ケンタッキー','サブウェイ','ほっともっと','松屋','ねぎし','バーミヤン','にくの助','デニーズ','ガスト','サイゼリヤ','レストラン','izakaya','居酒屋','しゃぶ','やきにく','焼肉','寿司','すし','ラーメン'] },
+  { name: '娯楽',           color: '#3b82f6', keywords: ['シネマ','映画','ゲーム','アミューズ','カラオケ','ボウリング','イオンシネマ'] },
+  { name: '車',             color: '#64748b', keywords: ['駐車場','パーキング','ENEOS','Ｅｎｅｏｓ','エネオス','ガソリン','洗車','オートバックス','イエローハット'] },
   { name: 'スーパー',       color: '#22c55e', keywords: ['まいばすけっと','オーケー','イオン','西友','ライフ','マルエツ','ヨークマート','ピアゴ','コープ','高島屋','島屋','ルミネ'] },
   { name: '病院',           color: '#f43f5e', keywords: ['クリニック','病院','薬局','ドラッグ','マツキヨ','ウエルシア','ツルハ','調剤','ＡＲＴ','医院','歯科'] },
   { name: '水道代',         color: '#0ea5e9', keywords: ['水道','上下水道'] },
@@ -796,10 +794,11 @@ const KAKEIBO_CATEGORIES = [
   { name: '家賃',           color: '#ec4899', keywords: [] },
 ];
 function classifyCategory(name) {
-  // カスタムキーワードを優先チェック
+  // カスタムキーワードを優先チェック、削除済みキーワードは除外
   for (const cat of KAKEIBO_CATEGORIES) {
     const custom = customKeywords[cat.name] || [];
-    const all = [...custom, ...cat.keywords];
+    const removed = removedKeywords[cat.name] || [];
+    const all = [...custom, ...cat.keywords.filter(kw => !removed.includes(kw))];
     if (all.some(kw => name.includes(kw))) return cat.name;
   }
   return 'その他';
@@ -810,7 +809,8 @@ function categoryColor(name) {
 }
 
 // カスタムキーワード（ユーザーが手動追加分）
-let customKeywords = {}; // { "娯楽": ["XX駐車場"], "スーパー": ["YY"] }
+let customKeywords = {}; // { "娯楽": ["XX"], "スーパー": ["YY"] }
+let removedKeywords = {}; // { "娯楽": ["削除したデフォルトKW"] }
 const CUSTOM_KW_DOC = db.collection('kakeibo').doc('custom_keywords');
 
 async function loadCustomKeywords() {
@@ -818,17 +818,22 @@ async function loadCustomKeywords() {
     const snap = await CUSTOM_KW_DOC.get();
     if (snap.exists) {
       customKeywords = snap.data().keywords || {};
+      removedKeywords = snap.data().removed || {};
       localStorage.setItem('kakeibo_custom_kw', JSON.stringify(customKeywords));
+      localStorage.setItem('kakeibo_removed_kw', JSON.stringify(removedKeywords));
     } else {
       customKeywords = JSON.parse(localStorage.getItem('kakeibo_custom_kw')) || {};
+      removedKeywords = JSON.parse(localStorage.getItem('kakeibo_removed_kw')) || {};
     }
   } catch(e) {
     customKeywords = JSON.parse(localStorage.getItem('kakeibo_custom_kw')) || {};
+    removedKeywords = JSON.parse(localStorage.getItem('kakeibo_removed_kw')) || {};
   }
 }
 async function saveCustomKeywords() {
   localStorage.setItem('kakeibo_custom_kw', JSON.stringify(customKeywords));
-  try { await CUSTOM_KW_DOC.set({ keywords: customKeywords, updatedAt: new Date() }); } catch(e){}
+  localStorage.setItem('kakeibo_removed_kw', JSON.stringify(removedKeywords));
+  try { await CUSTOM_KW_DOC.set({ keywords: customKeywords, removed: removedKeywords, updatedAt: new Date() }); } catch(e){}
 }
 
 // ============================================================
@@ -1116,19 +1121,23 @@ document.getElementById('btn-classify-close').addEventListener('click', () => {
 
 function renderClassifyModal() {
   const container = document.getElementById('classify-list');
-  // 家賃・振替以外のカテゴリを表示
   const cats = KAKEIBO_CATEGORIES.filter(c => c.name !== '家賃' && c.name !== '振替');
   container.innerHTML = cats.map(cat => {
     const custom = customKeywords[cat.name] || [];
-    const builtIn = cat.keywords;
+    const removed = removedKeywords[cat.name] || [];
+    const activeBuiltIn = cat.keywords.filter(kw => !removed.includes(kw));
     const allTags = [
-      ...builtIn.map(kw => `<span style="display:inline-block;padding:3px 8px;margin:2px;border-radius:999px;font-size:0.75rem;background:${cat.color}22;color:${cat.color}">${escapeHtml(kw)}</span>`),
-      ...custom.map(kw => `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;margin:2px;border-radius:999px;font-size:0.75rem;background:${cat.color}44;color:${cat.color};cursor:pointer;" onclick="removeCustomKw('${escapeHtml(cat.name)}','${escapeHtml(kw)}')">${escapeHtml(kw)} ✕</span>`)
+      ...activeBuiltIn.map(kw => `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;margin:2px;border-radius:999px;font-size:0.75rem;background:${cat.color}22;color:${cat.color};cursor:pointer;" onclick="removeBuiltInKw('${escapeHtml(cat.name)}','${escapeHtml(kw)}')">${escapeHtml(kw)} ✕</span>`),
+      ...custom.map(kw => `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;margin:2px;border-radius:999px;font-size:0.75rem;background:${cat.color}44;color:${cat.color};cursor:pointer;font-weight:600;" onclick="removeCustomKw('${escapeHtml(cat.name)}','${escapeHtml(kw)}')">${escapeHtml(kw)} ✕</span>`)
     ].join('');
+    const removedTags = removed.length > 0
+      ? `<div style="margin-top:4px;"><span style="font-size:0.7rem;color:var(--muted);">削除済み:</span> ${removed.map(kw => `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;margin:2px;border-radius:999px;font-size:0.7rem;background:#f3f4f6;color:#9ca3af;cursor:pointer;text-decoration:line-through;" onclick="restoreBuiltInKw('${escapeHtml(cat.name)}','${escapeHtml(kw)}')">${escapeHtml(kw)} ↩</span>`).join('')}</div>`
+      : '';
     return `
       <div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">
         <div style="font-weight:600;font-size:0.88rem;margin-bottom:6px;">${escapeHtml(cat.name)}</div>
         <div style="line-height:1.8;">${allTags}</div>
+        ${removedTags}
         <div style="display:flex;gap:6px;margin-top:6px;">
           <input type="text" placeholder="キーワードを追加" maxlength="30" id="kw-input-${escapeHtml(cat.name)}" style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.85rem;" />
           <button onclick="addCustomKw('${escapeHtml(cat.name)}')" style="padding:6px 12px;background:var(--kakeibo-primary);color:#fff;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer;">追加</button>
@@ -1152,6 +1161,20 @@ async function addCustomKw(catName) {
 async function removeCustomKw(catName, kw) {
   if (!customKeywords[catName]) return;
   customKeywords[catName] = customKeywords[catName].filter(k => k !== kw);
+  await saveCustomKeywords();
+  renderClassifyModal();
+}
+
+async function removeBuiltInKw(catName, kw) {
+  if (!removedKeywords[catName]) removedKeywords[catName] = [];
+  if (!removedKeywords[catName].includes(kw)) removedKeywords[catName].push(kw);
+  await saveCustomKeywords();
+  renderClassifyModal();
+}
+
+async function restoreBuiltInKw(catName, kw) {
+  if (!removedKeywords[catName]) return;
+  removedKeywords[catName] = removedKeywords[catName].filter(k => k !== kw);
   await saveCustomKeywords();
   renderClassifyModal();
 }
