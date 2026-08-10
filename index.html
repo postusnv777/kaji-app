@@ -930,7 +930,7 @@ async function renderKakeibo() {
   const month = kakeiboMonths[currentMonthIdx];
   document.getElementById('current-month-label').textContent = month.replace('/','年') + '月';
 
-  const hasRent = kakeiboRecords.some(r => r.category === '家賃' && r.date.startsWith(month));
+  const hasRent = kakeiboRecords.some(r => r.id === `rent_${month}`);
   if (!hasRent) {
     kakeiboRecords.push({ id:`rent_${month}`, date:`${month}/01`, name:'家賃', amount:100000, category:'家賃' });
     kakeiboRecords.sort((a,b) => b.date.localeCompare(a.date));
@@ -1119,8 +1119,20 @@ document.getElementById('btn-classify-settings').addEventListener('click', () =>
 document.getElementById('btn-reclassify').addEventListener('click', async () => {
   if (!confirm('全明細を現在のキーワード設定で再分類します。手動で変更したカテゴリも上書きされます。よろしいですか？')) return;
   let count = 0;
+  // 重複家賃を削除（rent_プレフィックスで同じIDが複数ないか）
+  const rentIds = new Set();
+  kakeiboRecords = kakeiboRecords.filter(r => {
+    if (r.id && r.id.startsWith('rent_')) {
+      if (rentIds.has(r.id)) return false; // 重複削除
+      rentIds.add(r.id);
+      r.category = '家賃'; // 家賃に戻す
+    }
+    return true;
+  });
   for (const r of kakeiboRecords) {
-    const newCat = r.amount < 0 ? '振替' : classifyCategory(r.name);
+    if (r.id && r.id.startsWith('rent_')) continue; // 家賃はスキップ
+    if (r.amount < 0) continue; // 振替はスキップ
+    const newCat = classifyCategory(r.name);
     if (r.category !== newCat) { r.category = newCat; count++; }
   }
   await KakeiboStorage.save(kakeiboRecords);
