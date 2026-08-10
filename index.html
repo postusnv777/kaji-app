@@ -1233,6 +1233,11 @@ document.getElementById('btn-import').addEventListener('click', () => {
 });
 
 document.getElementById('btn-reset').addEventListener('click', async () => {
+  const pw = window.prompt('パスワードを入力してください');
+  if (pw !== 'reset') {
+    if (pw !== null) alert('パスワードが違います');
+    return;
+  }
   if (!confirm('全データを削除します。この操作は元に戻せません。よろしいですか？')) return;
   kakeiboRecords = [];
   await KakeiboStorage.save([]);
@@ -1251,44 +1256,18 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
       alert('読み込めるデータがありませんでした。\n対応フォーマット: ご利用日,データ処理日,ご利用内容,…');
       return;
     }
-
-    // CSVに含まれる月を特定
-    const newMonths = [...new Set(newRecords.map(r => r.date.slice(0, 7)))];
-    const monthLabel = newMonths.join('・');
-
-    // 追加・上書き・キャンセルを選択
-    const choice = window.prompt(
-      `【${monthLabel}】のデータ ${newRecords.length}件を読み込みます。\n\n` +
-      `"1" → 追加（既存データとの重複を除いて追記）\n` +
-      `"2" → 上書き（同じ月の既存データを削除して置き換え）\n` +
-      `"0" または閉じる → キャンセル`
-    );
-
-    if (!choice || choice.trim() === '0') return; // キャンセル
-
-    if (choice.trim() === '2') {
-      // 上書き：同じ月のデータを削除してから追加
-      kakeiboRecords = kakeiboRecords.filter(r => !newMonths.includes(r.date.slice(0, 7)));
-      kakeiboRecords = [...kakeiboRecords, ...newRecords].sort((a, b) => b.date.localeCompare(a.date));
-      await KakeiboStorage.save(kakeiboRecords);
-      selectedCategory = null;
-      currentMonthIdx = 0;
-      renderKakeibo();
-      alert(`${newRecords.length}件を上書きしました。`);
-    } else {
-      // 追加：既存データとの重複チェックあり（新規データ内はチェックなし）
-      const existingKeys = new Set(kakeiboRecords.map(r => `${r.date}|${r.name}|${r.amount}`));
-      const added = newRecords.filter(r => !existingKeys.has(`${r.date}|${r.name}|${r.amount}`));
-      kakeiboRecords = [...kakeiboRecords, ...added].sort((a, b) => b.date.localeCompare(a.date));
-      await KakeiboStorage.save(kakeiboRecords);
-      selectedCategory = null;
-      currentMonthIdx = 0;
-      renderKakeibo();
-      alert(`${added.length}件を追加しました。（重複 ${newRecords.length - added.length}件を除外）`);
-    }
+    // 既存データとの重複チェックあり・新規データ内はチェックなし
+    const existingKeys = new Set(kakeiboRecords.map(r => `${r.date}|${r.name}|${r.amount}`));
+    const added = newRecords.filter(r => !existingKeys.has(`${r.date}|${r.name}|${r.amount}`));
+    kakeiboRecords = [...kakeiboRecords, ...added].sort((a, b) => b.date.localeCompare(a.date));
+    await KakeiboStorage.save(kakeiboRecords);
+    selectedCategory = null;
+    currentMonthIdx = 0;
+    renderKakeibo();
+    alert(`${added.length}件を追加しました。（重複 ${newRecords.length - added.length}件を除外）`);
   };
   reader.readAsArrayBuffer(file);
-  e.target.value = ''; // 同じファイルを再選択できるようリセット
+  e.target.value = '';
 });
 
 document.getElementById('btn-prev-month').addEventListener('click', () => {
