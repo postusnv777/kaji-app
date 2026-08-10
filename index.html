@@ -467,6 +467,9 @@
   </style>
   <!-- Chart.js (ローカル処理・外部にデータ送信なし) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Firebase compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -850,20 +853,60 @@ function categoryColor(name) {
 }
 
 // ============================================================
-//  家計簿 — データ層
+//  Firebase 初期化
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCkF1a6epqLX4xc77PGtXVnwac68fB75Oo",
+  authDomain: "kaji-app-dbd61.firebaseapp.com",
+  projectId: "kaji-app-dbd61",
+  storageBucket: "kaji-app-dbd61.firebasestorage.app",
+  messagingSenderId: "418084439735",
+  appId: "1:418084439735:web:2aa9f697a54e99f2f22f32"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const RECORDS_DOC = db.collection('kakeibo').doc('records_v1');
+
+// ============================================================
+//  家計簿 — データ層（Firestore + localStorageフォールバック）
 // ============================================================
 const KakeiboStorage = {
-  KEY: 'kakeibo_records_v1',
+  LS_KEY: 'kakeibo_records_v1',
 
-  load() {
+  // Firestoreから読み込み（失敗時はlocalStorageにフォールバック）
+  async load() {
     try {
-      return JSON.parse(localStorage.getItem(this.KEY)) || [];
-    } catch { return []; }
+      const snap = await RECORDS_DOC.get();
+      if (snap.exists) {
+        const data = snap.data().records || [];
+        // localStorageにもキャッシュ
+        localStorage.setItem(this.LS_KEY, JSON.stringify(data));
+        return data;
+      }
+      // Firestoreにデータなし → localStorageから移行
+      const local = this.loadLocal();
+      if (local.length > 0) await this.save(local); // localデータをFirestoreに移行
+      return local;
+    } catch (e) {
+      console.warn('Firestore読み込み失敗、localStorageを使用:', e);
+      return this.loadLocal();
+    }
   },
 
-  save(records) {
-    // 保存するのは日付・店名・金額・カテゴリのみ（氏名・会員番号は除外済み）
-    localStorage.setItem(this.KEY, JSON.stringify(records));
+  // Firestoreに保存（同時にlocalStorageにもキャッシュ）
+  async save(records) {
+    localStorage.setItem(this.LS_KEY, JSON.stringify(records));
+    try {
+      await RECORDS_DOC.set({ records, updatedAt: new Date() });
+    } catch (e) {
+      console.warn('Firestore保存失敗、localStorageのみ保存:', e);
+    }
+  },
+
+  loadLocal() {
+    try {
+      return JSON.parse(localStorage.getItem(this.LS_KEY)) || [];
+    } catch { return []; }
   }
 };
 
@@ -927,7 +970,7 @@ function splitCSVLine(line) {
 // ============================================================
 //  家計簿 — 状態
 // ============================================================
-let kakeiboRecords = KakeiboStorage.load();
+let kakeiboRecords = [];   // 起動時はFirestoreから非同期ロード
 let kakeiboMonths  = [];   // 存在する月リスト ["2026/07", "2026/06", ...]
 let currentMonthIdx = 0;   // kakeiboMonths のインデックス
 let selectedCategory = null;
@@ -940,7 +983,7 @@ function buildMonthList() {
 // ============================================================
 //  家計簿 — 描画
 // ============================================================
-function renderKakeibo() {
+async function renderKakeibo() {
   const hasData = kakeiboRecords.length > 0;
   document.getElementById('kakeibo-empty').style.display = hasData ? 'none' : 'block';
   document.getElementById('month-selector').style.display = hasData ? 'flex' : 'none';
@@ -968,7 +1011,7 @@ function renderKakeibo() {
       category: '家賃'
     });
     kakeiboRecords.sort((a, b) => b.date.localeCompare(a.date));
-    KakeiboStorage.save(kakeiboRecords);
+    await KakeiboStorage.save(kakeiboRecords);
   }
 
   // 当月レコード
@@ -1143,21 +1186,21 @@ document.getElementById('btn-modal-cancel').addEventListener('click', () => {
   document.getElementById('edit-modal').classList.add('hidden');
 });
 
-document.getElementById('btn-modal-save').addEventListener('click', () => {
+document.getElementById('btn-modal-save').addEventListener('click', async () => {
   const record = kakeiboRecords.find(r => r.id === editingRecordId);
   if (!record) return;
   record.name     = document.getElementById('edit-name').value.trim() || record.name;
   record.amount   = parseInt(document.getElementById('edit-amount').value, 10) || record.amount;
   record.category = document.getElementById('edit-category').value;
-  KakeiboStorage.save(kakeiboRecords);
+  await KakeiboStorage.save(kakeiboRecords);
   document.getElementById('edit-modal').classList.add('hidden');
   renderKakeibo();
 });
 
-document.getElementById('btn-modal-delete').addEventListener('click', () => {
+document.getElementById('btn-modal-delete').addEventListener('click', async () => {
   if (!confirm('この明細を削除しますか？')) return;
   kakeiboRecords = kakeiboRecords.filter(r => r.id !== editingRecordId);
-  KakeiboStorage.save(kakeiboRecords);
+  await KakeiboStorage.save(kakeiboRecords);
   document.getElementById('edit-modal').classList.add('hidden');
   renderKakeibo();
 });
@@ -1191,7 +1234,7 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
     const added = newRecords.filter(r => !existingKeys.has(`${r.date}|${r.name}|${r.amount}`));
 
     kakeiboRecords = [...kakeiboRecords, ...added].sort((a, b) => b.date.localeCompare(a.date));
-    KakeiboStorage.save(kakeiboRecords);
+    await KakeiboStorage.save(kakeiboRecords);
     selectedCategory = null;
     currentMonthIdx = 0;
     renderKakeibo();
@@ -1218,7 +1261,10 @@ document.getElementById('btn-next-month').addEventListener('click', () => {
 });
 
 // 既存データがあれば初期描画
-if (kakeiboRecords.length > 0) renderKakeibo();
+KakeiboStorage.load().then(records => {
+  kakeiboRecords = records;
+  if (kakeiboRecords.length > 0) renderKakeibo();
+});
 </script>
 
 </body>
