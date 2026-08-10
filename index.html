@@ -1229,16 +1229,29 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
       alert('読み込めるデータがありませんでした。\n対応フォーマット: ご利用日,データ処理日,ご利用内容,…');
       return;
     }
-    // 重複を除いてマージ（同日・同店名・同金額）
-    const existingKeys = new Set(kakeiboRecords.map(r => `${r.date}|${r.name}|${r.amount}`));
-    const added = newRecords.filter(r => !existingKeys.has(`${r.date}|${r.name}|${r.amount}`));
 
-    kakeiboRecords = [...kakeiboRecords, ...added].sort((a, b) => b.date.localeCompare(a.date));
+    // CSVに含まれる月を特定
+    const newMonths = [...new Set(newRecords.map(r => r.date.slice(0, 7)))];
+    const monthLabel = newMonths.join('・');
+
+    // 追加 or 上書きを選択
+    const overwrite = confirm(
+      `【${monthLabel}】のデータ ${newRecords.length}件を読み込みます。\n\n` +
+      `OK → 上書き（同じ月の既存データを削除して置き換え）\n` +
+      `キャンセル → 追加（既存データはそのまま全件追記）`
+    );
+
+    if (overwrite) {
+      // 同じ月のデータを削除してから追加
+      kakeiboRecords = kakeiboRecords.filter(r => !newMonths.includes(r.date.slice(0, 7)));
+    }
+
+    kakeiboRecords = [...kakeiboRecords, ...newRecords].sort((a, b) => b.date.localeCompare(a.date));
     await KakeiboStorage.save(kakeiboRecords);
     selectedCategory = null;
     currentMonthIdx = 0;
     renderKakeibo();
-    alert(`${added.length}件を取り込みました。`);
+    alert(`${newRecords.length}件を${overwrite ? '上書き' : '追加'}しました。`);
   };
   reader.readAsArrayBuffer(file);
   e.target.value = ''; // 同じファイルを再選択できるようリセット
