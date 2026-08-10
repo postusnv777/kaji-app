@@ -420,10 +420,24 @@ const ALLOWED_EMAILS = ['post.usnv777@gmail.com', 'g1712060@gmail.com'];
 document.getElementById('btn-login').addEventListener('click', async () => {
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithRedirect(provider);
+    const result = await auth.signInWithPopup(provider);
+    const email = result.user.email;
+    if (!ALLOWED_EMAILS.includes(email)) {
+      await auth.signOut();
+      document.getElementById('login-error').textContent = 'このアカウントは許可されていません: ' + email;
+      document.getElementById('login-error').style.display = 'block';
+      return;
+    }
+    showApp();
   } catch(e) {
-    document.getElementById('login-error').textContent = 'エラー: ' + e.code + ' / ' + e.message;
-    document.getElementById('login-error').style.display = 'block';
+    // popup失敗時はredirectにフォールバック
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithRedirect(provider);
+    } else {
+      document.getElementById('login-error').textContent = 'エラー: ' + e.code + ' / ' + e.message;
+      document.getElementById('login-error').style.display = 'block';
+    }
   }
 });
 
@@ -438,8 +452,10 @@ auth.getRedirectResult().then(result => {
     }
   }
 }).catch(e => {
-  document.getElementById('login-error').textContent = 'エラー: ' + e.code + ' / ' + e.message;
-  document.getElementById('login-error').style.display = 'block';
+  if (e.code) {
+    document.getElementById('login-error').textContent = 'エラー: ' + e.code + ' / ' + e.message;
+    document.getElementById('login-error').style.display = 'block';
+  }
 });
 
 // ログイン状態の監視
