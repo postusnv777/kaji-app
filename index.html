@@ -291,6 +291,7 @@
       <input type="file" id="csv-file-input" accept=".csv" />
       <br>
       <button class="btn-reset" id="btn-reset">🗑️ 全データをリセット</button>
+      <button id="btn-classify-settings" style="display:inline-block;margin-top:8px;margin-left:8px;padding:7px 18px;background:transparent;color:var(--kakeibo-primary);border:1px solid var(--kakeibo-primary);border-radius:8px;font-size:0.85rem;cursor:pointer;">⚙️ 分類設定</button>
     </div>
     <div class="kakeibo-month-selector" id="month-selector" style="display:none">
       <button class="month-nav-btn" id="btn-prev-month">‹</button>
@@ -381,6 +382,18 @@
 </div>
 
 </div><!-- /app-main -->
+
+<!-- 分類設定モーダル -->
+<div class="modal-overlay hidden" id="classify-modal">
+  <div class="modal-box" style="max-height:85vh;overflow-y:auto;">
+    <h3>分類キーワード設定</h3>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">各カテゴリのキーワードを追加・削除できます。店名にキーワードが含まれていれば自動分類されます。</p>
+    <div id="classify-list"></div>
+    <div class="modal-buttons" style="margin-top:16px;">
+      <button class="btn-mc" id="btn-classify-close" style="flex:1;">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <script>
 
@@ -480,6 +493,7 @@ async function initApp() {
   kajiCompletions = await KajiStorage.loadCompletions();
   renderKajiAll();
   // 家計簿データ読み込み
+  await loadCustomKeywords();
   kakeiboRecords = await KakeiboStorage.load();
   if (kakeiboRecords.length > 0) renderKakeibo();
 }
@@ -782,14 +796,39 @@ const KAKEIBO_CATEGORIES = [
   { name: '家賃',           color: '#ec4899', keywords: [] },
 ];
 function classifyCategory(name) {
+  // カスタムキーワードを優先チェック
   for (const cat of KAKEIBO_CATEGORIES) {
-    if (cat.keywords.some(kw => name.includes(kw))) return cat.name;
+    const custom = customKeywords[cat.name] || [];
+    const all = [...custom, ...cat.keywords];
+    if (all.some(kw => name.includes(kw))) return cat.name;
   }
   return 'その他';
 }
 function categoryColor(name) {
   const cat = KAKEIBO_CATEGORIES.find(c => c.name === name);
   return cat ? cat.color : '#6b7280';
+}
+
+// カスタムキーワード（ユーザーが手動追加分）
+let customKeywords = {}; // { "娯楽": ["XX駐車場"], "スーパー": ["YY"] }
+const CUSTOM_KW_DOC = db.collection('kakeibo').doc('custom_keywords');
+
+async function loadCustomKeywords() {
+  try {
+    const snap = await CUSTOM_KW_DOC.get();
+    if (snap.exists) {
+      customKeywords = snap.data().keywords || {};
+      localStorage.setItem('kakeibo_custom_kw', JSON.stringify(customKeywords));
+    } else {
+      customKeywords = JSON.parse(localStorage.getItem('kakeibo_custom_kw')) || {};
+    }
+  } catch(e) {
+    customKeywords = JSON.parse(localStorage.getItem('kakeibo_custom_kw')) || {};
+  }
+}
+async function saveCustomKeywords() {
+  localStorage.setItem('kakeibo_custom_kw', JSON.stringify(customKeywords));
+  try { await CUSTOM_KW_DOC.set({ keywords: customKeywords, updatedAt: new Date() }); } catch(e){}
 }
 
 // ============================================================
@@ -1063,6 +1102,59 @@ document.getElementById('btn-prev-month').addEventListener('click', () => {
 document.getElementById('btn-next-month').addEventListener('click', () => {
   if (currentMonthIdx > 0) { currentMonthIdx--; selectedCategory=null; renderKakeibo(); }
 });
+
+// ============================================================
+//  分類設定モーダル
+// ============================================================
+document.getElementById('btn-classify-settings').addEventListener('click', () => {
+  renderClassifyModal();
+  document.getElementById('classify-modal').classList.remove('hidden');
+});
+document.getElementById('btn-classify-close').addEventListener('click', () => {
+  document.getElementById('classify-modal').classList.add('hidden');
+});
+
+function renderClassifyModal() {
+  const container = document.getElementById('classify-list');
+  // 家賃・振替以外のカテゴリを表示
+  const cats = KAKEIBO_CATEGORIES.filter(c => c.name !== '家賃' && c.name !== '振替');
+  container.innerHTML = cats.map(cat => {
+    const custom = customKeywords[cat.name] || [];
+    const builtIn = cat.keywords;
+    const allTags = [
+      ...builtIn.map(kw => `<span style="display:inline-block;padding:3px 8px;margin:2px;border-radius:999px;font-size:0.75rem;background:${cat.color}22;color:${cat.color}">${escapeHtml(kw)}</span>`),
+      ...custom.map(kw => `<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;margin:2px;border-radius:999px;font-size:0.75rem;background:${cat.color}44;color:${cat.color};cursor:pointer;" onclick="removeCustomKw('${escapeHtml(cat.name)}','${escapeHtml(kw)}')">${escapeHtml(kw)} ✕</span>`)
+    ].join('');
+    return `
+      <div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+        <div style="font-weight:600;font-size:0.88rem;margin-bottom:6px;">${escapeHtml(cat.name)}</div>
+        <div style="line-height:1.8;">${allTags}</div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <input type="text" placeholder="キーワードを追加" maxlength="30" id="kw-input-${escapeHtml(cat.name)}" style="flex:1;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.85rem;" />
+          <button onclick="addCustomKw('${escapeHtml(cat.name)}')" style="padding:6px 12px;background:var(--kakeibo-primary);color:#fff;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer;">追加</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function addCustomKw(catName) {
+  const input = document.getElementById(`kw-input-${catName}`);
+  const kw = input.value.trim();
+  if (!kw) return;
+  if (!customKeywords[catName]) customKeywords[catName] = [];
+  if (customKeywords[catName].includes(kw)) { alert('既に登録されています'); return; }
+  customKeywords[catName].push(kw);
+  await saveCustomKeywords();
+  input.value = '';
+  renderClassifyModal();
+}
+
+async function removeCustomKw(catName, kw) {
+  if (!customKeywords[catName]) return;
+  customKeywords[catName] = customKeywords[catName].filter(k => k !== kw);
+  await saveCustomKeywords();
+  renderClassifyModal();
+}
 
 // ============================================================
 //  ナビゲーション
