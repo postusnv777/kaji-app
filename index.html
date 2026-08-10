@@ -5,561 +5,281 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#4f86c6" />
   <title>家事・家計管理</title>
-
-  <!-- PWA用マニフェストリンク（後でmanifest.jsonを追加する場合はここを有効化） -->
-  <!-- <link rel="manifest" href="manifest.json" /> -->
-
   <style>
-    /* ===== リセット & ベース ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --primary: #4f86c6;
-      --primary-dark: #3a6ea8;
-      --bg: #f4f6fb;
-      --card: #ffffff;
-      --text: #1a1a2e;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-      --danger: #ef4444;
-      --success: #22c55e;
-      --radius: 12px;
-      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+      --kaji-primary: #4f86c6; --kaji-dark: #3a6ea8;
+      --kakeibo-primary: #f97316; --kakeibo-dark: #ea6c0a;
+      --bg: #f4f6fb; --card: #ffffff; --text: #1a1a2e;
+      --muted: #6b7280; --border: #e5e7eb;
+      --danger: #ef4444; --success: #22c55e;
+      --radius: 12px; --shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Meiryo", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100dvh;
+      background: var(--bg); color: var(--text);
+      min-height: 100dvh; overflow-x: hidden;
       padding-bottom: env(safe-area-inset-bottom);
     }
-
-    /* ===== ヘッダー ===== */
     header {
-      background: var(--primary);
-      color: #fff;
-      padding: 16px 20px 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      background: var(--kaji-primary); color: #fff;
+      padding: 14px 20px 0; position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15); transition: background 0.3s;
     }
-    header h1 { font-size: 1.3rem; font-weight: 700; }
-    header p { font-size: 0.78rem; opacity: 0.85; margin-top: 2px; }
-
-    /* ===== メインレイアウト ===== */
-    main { max-width: 600px; margin: 0 auto; padding: 16px 16px 100px; }
-
-    /* ===== カテゴリタブ ===== */
-    .category-tabs {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 4px 0 12px;
-      scrollbar-width: none;
+    header h1 { font-size: 1.2rem; font-weight: 700; padding-bottom: 4px; }
+    .top-nav { display: flex; }
+    .top-nav-btn {
+      flex: 1; padding: 10px 8px; background: none; border: none;
+      color: rgba(255,255,255,0.6); font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s;
     }
-    .category-tabs::-webkit-scrollbar { display: none; }
-    .tab-btn {
-      flex-shrink: 0;
-      padding: 6px 16px;
-      border-radius: 999px;
-      border: 2px solid var(--border);
-      background: var(--card);
-      color: var(--muted);
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-weight: 500;
+    .top-nav-btn.active { color: #fff; border-bottom-color: #fff; }
+    .sub-nav {
+      display: flex; background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 62px; z-index: 90;
     }
-    .tab-btn.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
+    .sub-nav-btn {
+      flex: 1; padding: 10px 8px; background: none;
+      border: none; border-bottom: 3px solid transparent;
+      color: var(--muted); font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
     }
-
-    /* ===== タスク追加フォーム ===== */
-    .add-form {
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-      margin-bottom: 16px;
+    .sub-nav-btn.active { color: var(--kaji-primary); border-bottom-color: var(--kaji-primary); }
+    main { max-width: 600px; margin: 0 auto; padding: 16px 16px 100px; overflow-x: hidden; }
+    .page { display: none; } .page.active { display: block; }
+    .kaji-tab { display: none; } .kaji-tab.active { display: block; }
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px;
     }
-    .add-form h2 { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
-    .form-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .form-row input, .form-row select {
-      flex: 1;
-      padding: 10px 12px;
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      font-size: 1rem;
-      background: var(--bg);
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .form-row input:focus, .form-row select:focus {
-      border-color: var(--primary);
-    }
-    .form-row select { flex: 0 0 auto; min-width: 110px; }
-    .btn-add {
-      width: 100%;
-      padding: 11px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .btn-add:hover { background: var(--primary-dark); }
-    .btn-add:active { transform: scale(0.98); }
-
-    /* ===== タスクリスト ===== */
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 8px 0 10px;
-    }
-    .section-header h2 { font-size: 1rem; font-weight: 700; }
-    .count-badge {
-      font-size: 0.75rem;
-      background: var(--primary);
-      color: #fff;
-      padding: 2px 8px;
-      border-radius: 999px;
-    }
-
-    .task-list { display: flex; flex-direction: column; gap: 8px; }
-
+    /* 家事タスク */
+    .today-heading { font-size: 1rem; font-weight: 700; color: var(--kaji-primary); margin-bottom: 14px; }
     .task-item {
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      transition: opacity 0.2s;
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 13px 14px; display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
     }
-    .task-item.done { opacity: 0.5; }
-
-    /* チェックボックス */
+    .task-item.done { opacity: 0.45; }
     .task-check {
-      width: 24px;
-      height: 24px;
-      flex-shrink: 0;
-      border: 2px solid var(--border);
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
-      background: var(--bg);
+      width: 26px; height: 26px; flex-shrink: 0; border: 2px solid var(--border);
+      border-radius: 50%; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; background: var(--bg); transition: all 0.15s;
     }
-    .task-item.done .task-check {
-      background: var(--success);
-      border-color: var(--success);
-    }
-    .task-check svg { display: none; }
+    .task-item.done .task-check { background: var(--success); border-color: var(--success); }
+    .task-check svg, .week-check svg { display: none; }
     .task-item.done .task-check svg { display: block; }
-
     .task-body { flex: 1; min-width: 0; }
-    .task-name {
-      font-size: 0.98rem;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .task-name { font-size: 0.95rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .task-item.done .task-name { text-decoration: line-through; }
-    .task-meta {
-      display: flex;
-      gap: 6px;
-      margin-top: 4px;
-      align-items: center;
-    }
-    .cat-tag {
-      font-size: 0.72rem;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-weight: 600;
-    }
-    .task-date { font-size: 0.72rem; color: var(--muted); }
-
-    .btn-delete {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 6px;
-      transition: color 0.15s;
-      flex-shrink: 0;
-    }
-    .btn-delete:hover { color: var(--danger); }
-
-    /* 完了済みセクション */
-    .done-toggle {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 0.85rem;
-      cursor: pointer;
-      padding: 8px 0;
-      margin-top: 16px;
-      border-top: 1px solid var(--border);
-      user-select: none;
-    }
-    .done-toggle svg { transition: transform 0.2s; }
-    .done-toggle.open svg { transform: rotate(90deg); }
-
-    /* 空状態 */
-    .empty {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--muted);
-    }
-    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
-    .empty p { font-size: 0.9rem; }
-
-    /* カテゴリ色 */
-    .cat-掃除  { background: #fef3c7; color: #92400e; }
-    .cat-洗濯  { background: #dbeafe; color: #1e40af; }
-    .cat-料理  { background: #dcfce7; color: #166534; }
-    .cat-買い物 { background: #fce7f3; color: #9d174d; }
-    .cat-その他 { background: #f3f4f6; color: #374151; }
-
-    /* ===== ページナビゲーション ===== */
-    .page-nav {
-      display: flex;
-      background: var(--primary-dark);
-    }
-    .page-nav-btn {
-      flex: 1;
-      padding: 10px;
-      background: none;
-      border: none;
-      color: rgba(255,255,255,0.65);
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: all 0.15s;
-    }
-    .page-nav-btn.active {
-      color: #fff;
-      border-bottom-color: #fff;
-    }
-
-    /* ===== 家計簿セクション ===== */
-    #page-kakeibo { display: none; }
-    #page-kaji { display: block; }
-
-    .kakeibo-import {
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-      margin-bottom: 16px;
-      text-align: center;
-    }
-    .kakeibo-import p {
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-    .btn-import {
+    .task-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .cat-tag { font-size: 0.68rem; padding: 2px 7px; border-radius: 999px; font-weight: 600; flex-shrink: 0; }
+    .cat-掃除  { background:#fef3c7; color:#92400e; }
+    .cat-洗濯  { background:#dbeafe; color:#1e40af; }
+    .cat-料理  { background:#dcfce7; color:#166534; }
+    .cat-買い物 { background:#fce7f3; color:#9d174d; }
+    .cat-その他 { background:#f3f4f6; color:#374151; }
+    .empty-state { text-align:center; padding:40px 16px; color:var(--muted); }
+    .empty-state .icon { font-size:2.2rem; margin-bottom:8px; }
+    /* 今週タブ */
+    .week-day-label {
+      font-size: 0.82rem; font-weight: 700; padding: 5px 10px;
+      border-radius: 8px; margin-bottom: 6px; background: var(--border); color: var(--text);
       display: inline-block;
-      padding: 10px 24px;
-      background: var(--primary);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
+    }
+    .week-day-label.today { background: var(--kaji-primary); color: #fff; }
+    .week-day-section { margin-bottom: 14px; }
+    .week-task-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: var(--card); border-radius: 8px;
+      box-shadow: var(--shadow); margin-bottom: 5px;
+    }
+    .week-task-row.done { opacity: 0.4; }
+    .week-check {
+      width: 20px; height: 20px; flex-shrink: 0; border: 2px solid var(--border);
+      border-radius: 50%; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; background: var(--bg); transition: all 0.15s;
+    }
+    .week-task-row.done .week-check { background: var(--success); border-color: var(--success); }
+    .week-task-row.done .week-check svg { display: block; }
+    .week-task-name { flex: 1; font-size: 0.88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .week-task-row.done .week-task-name { text-decoration: line-through; }
+    /* 設定タブ */
+    .btn-add-task {
+      width: 100%; padding: 12px; background: var(--kaji-primary); color: #fff;
+      border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; margin-bottom: 16px;
+    }
+    .schedule-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; background: var(--card); border-radius: var(--radius);
+      box-shadow: var(--shadow); margin-bottom: 8px;
+    }
+    .schedule-info { flex: 1; min-width: 0; }
+    .schedule-name { font-size: 0.92rem; font-weight: 600; }
+    .schedule-detail { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .btn-edit-sch {
+      background: none; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 5px 10px; font-size: 0.8rem; cursor: pointer; color: var(--muted); flex-shrink: 0;
+    }
+    /* モーダル共通 */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--card); border-radius: var(--radius); padding: 20px;
+      width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      max-height: 88vh; overflow-y: auto;
+    }
+    .modal-box h3 { font-size: 1rem; margin-bottom: 12px; }
+    .modal-box label { font-size: 0.8rem; color: var(--muted); display: block; margin: 10px 0 4px; }
+    .modal-box input, .modal-box select {
+      width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 1rem; background: var(--bg); color: var(--text); outline: none;
+    }
+    .modal-box input:focus, .modal-box select:focus { border-color: var(--kaji-primary); }
+    .weekday-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .wd-btn {
+      padding: 6px 10px; border-radius: 999px; border: 1.5px solid var(--border);
+      background: var(--bg); font-size: 0.82rem; cursor: pointer; transition: all 0.12s;
+    }
+    .wd-btn.selected { background: var(--kaji-primary); color: #fff; border-color: var(--kaji-primary); }
+    .modal-buttons { display: flex; gap: 8px; margin-top: 16px; }
+    .btn-ms { flex:1; padding:10px; background:var(--kaji-primary); color:#fff; border:none; border-radius:8px; font-size:0.95rem; font-weight:600; cursor:pointer; }
+    .btn-mc { flex:1; padding:10px; background:var(--bg); color:var(--text); border:1.5px solid var(--border); border-radius:8px; font-size:0.95rem; cursor:pointer; }
+    .btn-md { padding:10px 14px; background:none; color:var(--danger); border:1.5px solid var(--danger); border-radius:8px; font-size:0.95rem; cursor:pointer; }
+    /* 家計簿 */
+    .kakeibo-import {
+      background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 16px; margin-bottom: 16px; text-align: center;
+    }
+    .kakeibo-import p { font-size: 0.82rem; color: var(--muted); margin-bottom: 12px; }
+    .btn-import {
+      display: inline-block; padding: 10px 24px; background: var(--kakeibo-primary); color: #fff;
+      border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
     }
     .btn-import:active { transform: scale(0.97); }
     #csv-file-input { display: none; }
     .btn-reset {
-      display: inline-block;
-      margin-top: 8px;
-      padding: 7px 18px;
-      background: transparent;
-      color: var(--danger);
-      border: 1px solid var(--danger);
-      border-radius: 8px;
-      font-size: 0.85rem;
-      cursor: pointer;
+      display: inline-block; margin-top: 8px; padding: 7px 18px;
+      background: transparent; color: var(--danger); border: 1px solid var(--danger);
+      border-radius: 8px; font-size: 0.85rem; cursor: pointer;
     }
-    .btn-reset:active { transform: scale(0.97); }
-
     .kakeibo-month-selector {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px;
     }
     .month-nav-btn {
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      width: 36px; height: 36px;
-      font-size: 1.1rem;
-      cursor: pointer;
+      background: var(--card); border: 1.5px solid var(--border); border-radius: 8px;
+      width: 36px; height: 36px; font-size: 1.1rem; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
-    #current-month-label {
-      font-size: 1rem;
-      font-weight: 700;
-      min-width: 100px;
-      text-align: center;
-    }
-
-    .kakeibo-summary {
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .kakeibo-summary h2 {
-      font-size: 0.9rem;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-    .summary-total {
-      font-size: 1.4rem;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 14px;
-      color: var(--primary-dark);
-    }
+    #current-month-label { font-size: 1rem; font-weight: 700; min-width: 100px; text-align: center; }
+    .kakeibo-summary { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+    .kakeibo-summary h2 { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
+    .summary-total { font-size: 1.4rem; font-weight: 700; text-align: center; margin-bottom: 14px; color: var(--kakeibo-dark); }
     .summary-rows { display: flex; flex-direction: column; gap: 6px; }
     .summary-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      padding: 6px 8px;
-      border-radius: 8px;
-      transition: background 0.1s;
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 6px 8px; border-radius: 8px; transition: background 0.1s;
     }
-    .summary-row:hover { background: var(--bg); }
-    .summary-row.active { background: var(--bg); }
-    .summary-cat-label {
-      flex: 1;
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-    .summary-bar-wrap {
-      flex: 2;
-      height: 8px;
-      background: var(--border);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .summary-bar {
-      height: 100%;
-      border-radius: 999px;
-      transition: width 0.3s;
-    }
-    .summary-amount {
-      font-size: 0.88rem;
-      font-weight: 600;
-      min-width: 72px;
-      text-align: right;
-    }
-
-    .kakeibo-detail {
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .kakeibo-detail h2 {
-      font-size: 0.9rem;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
+    .summary-row:hover, .summary-row.active { background: var(--bg); }
+    .summary-cat-label { font-size: 0.88rem; font-weight: 500; min-width: 80px; }
+    .summary-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; min-width: 0; }
+    .summary-bar { height: 100%; border-radius: 999px; transition: width 0.3s; }
+    .summary-amount { font-size: 0.85rem; font-weight: 600; min-width: 76px; text-align: right; white-space: nowrap; }
+    .kakeibo-detail { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin-bottom: 16px; }
+    .kakeibo-detail h2 { font-size: 0.9rem; color: var(--muted); margin-bottom: 10px; }
     .detail-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.88rem;
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem;
+      flex-wrap: wrap;
     }
     .detail-item:last-child { border-bottom: none; }
-    .detail-date { color: var(--muted); min-width: 48px; }
-    .detail-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .detail-amount { font-weight: 600; min-width: 72px; text-align: right; }
-    .detail-cat-tag {
-      font-size: 0.7rem;
-      padding: 2px 6px;
-      border-radius: 999px;
-      font-weight: 600;
-      flex-shrink: 0;
+    .detail-date { color: var(--muted); min-width: 44px; flex-shrink: 0; }
+    .detail-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 80px; }
+    .detail-amount { font-weight: 600; min-width: 70px; text-align: right; white-space: nowrap; }
+    .detail-cat-tag { font-size: 0.68rem; padding: 2px 6px; border-radius: 999px; font-weight: 600; flex-shrink: 0; }
+    .btn-delete {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      padding: 4px; border-radius: 6px; flex-shrink: 0;
     }
-
-    /* カテゴリ色（家計簿用） */
-    .kcat-娯楽        { background: #dbeafe; color: #1e40af; }
-    .kcat-昼食コンビニ { background: #fef9c3; color: #854d0e; }
-    .kcat-昼食外食    { background: #fde68a; color: #92400e; }
-    .kcat-夕食外食    { background: #ffedd5; color: #9a3412; }
-    .kcat-スーパー    { background: #dcfce7; color: #166534; }
-    .kcat-病院        { background: #ffe4e6; color: #be123c; }
-    .kcat-水道代      { background: #e0f2fe; color: #0369a1; }
-    .kcat-電気代      { background: #fef3c7; color: #92400e; }
-    .kcat-ガス代      { background: #fee2e2; color: #991b1b; }
-    .kcat-積立        { background: #f0fdf4; color: #166534; }
-    .kcat-インターネット代 { background: #ede9fe; color: #5b21b6; }
-    .kcat-家賃        { background: #fce7f3; color: #9d174d; }
-    .kcat-振替        { background: #f3f4f6; color: #374151; }
-    .kcat-その他      { background: #f3f4f6; color: #374151; }
-
-    /* 手動編集モーダル */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 200;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .modal-overlay.hidden { display: none; }
-    .modal-box {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 20px;
-      width: calc(100% - 32px);
-      max-width: 400px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    }
-    .modal-box h3 { font-size: 1rem; margin-bottom: 14px; }
-    .modal-box label { font-size: 0.82rem; color: var(--muted); display: block; margin-bottom: 4px; }
-    .modal-box input, .modal-box select {
-      width: 100%; padding: 9px 12px;
-      border: 1.5px solid var(--border); border-radius: 8px;
-      font-size: 1rem; background: var(--bg); color: var(--text);
-      margin-bottom: 12px; outline: none;
-    }
-    .modal-box input:focus, .modal-box select:focus { border-color: var(--primary); }
-    .modal-buttons { display: flex; gap: 8px; }
-    .btn-modal-save {
-      flex: 1; padding: 10px; background: var(--primary); color: #fff;
-      border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
-    }
-    .btn-modal-cancel {
-      flex: 1; padding: 10px; background: var(--bg); color: var(--text);
-      border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.95rem; cursor: pointer;
-    }
-    .btn-modal-delete {
-      padding: 10px 14px; background: none; color: var(--danger);
-      border: 1.5px solid var(--danger); border-radius: 8px; font-size: 0.95rem; cursor: pointer;
-    }
-
-    .no-data {
-      text-align: center;
-      padding: 32px 20px;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
+    .btn-delete:hover { color: var(--danger); }
+    .kcat-娯楽        { background:#dbeafe; color:#1e40af; }
+    .kcat-昼食コンビニ { background:#fef9c3; color:#854d0e; }
+    .kcat-昼食外食    { background:#fde68a; color:#92400e; }
+    .kcat-夕食外食    { background:#ffedd5; color:#9a3412; }
+    .kcat-スーパー    { background:#dcfce7; color:#166534; }
+    .kcat-病院        { background:#ffe4e6; color:#be123c; }
+    .kcat-水道代      { background:#e0f2fe; color:#0369a1; }
+    .kcat-電気代      { background:#fef3c7; color:#92400e; }
+    .kcat-ガス代      { background:#fee2e2; color:#991b1b; }
+    .kcat-積立        { background:#f0fdf4; color:#166534; }
+    .kcat-インターネット代 { background:#ede9fe; color:#5b21b6; }
+    .kcat-家賃        { background:#fce7f3; color:#9d174d; }
+    .kcat-振替        { background:#f3f4f6; color:#374151; }
+    .kcat-その他      { background:#f3f4f6; color:#374151; }
+    .modal-kakeibo input:focus, .modal-kakeibo select:focus { border-color: var(--kakeibo-primary); }
+    .btn-ms-kakeibo { flex:1; padding:10px; background:var(--kakeibo-primary); color:#fff; border:none; border-radius:8px; font-size:0.95rem; font-weight:600; cursor:pointer; }
+    .no-data { text-align:center; padding:32px 20px; color:var(--muted); font-size:0.9rem; }
   </style>
-  <!-- Chart.js (ローカル処理・外部にデータ送信なし) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <!-- Firebase compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-<header>
-  <h1>🏠 家事・家計管理</h1>
-  <p id="today-date"></p>
+<header id="app-header">
+  <h1 id="header-title">🏠 家事・家計管理</h1>
+  <nav class="top-nav">
+    <button class="top-nav-btn active" data-app="kaji">🧹 家事管理</button>
+    <button class="top-nav-btn" data-app="kakeibo">💴 家計簿</button>
+  </nav>
 </header>
 
-<!-- ページナビゲーション -->
-<nav class="page-nav">
-  <button class="page-nav-btn active" data-page="kaji">🧹 家事管理</button>
-  <button class="page-nav-btn" data-page="kakeibo">💴 家計簿</button>
+<!-- 家事管理サブナビ -->
+<nav class="sub-nav" id="kaji-sub-nav">
+  <button class="sub-nav-btn active" data-tab="today">今日</button>
+  <button class="sub-nav-btn" data-tab="week">今週</button>
+  <button class="sub-nav-btn" data-tab="settings">設定</button>
 </nav>
 
 <main>
-  <!-- 家事管理ページ -->
-  <div id="page-kaji">
-  <!-- カテゴリフィルタ -->
-  <div class="category-tabs" id="category-tabs">
-    <button class="tab-btn active" data-cat="すべて">すべて</button>
-    <button class="tab-btn" data-cat="掃除">🧹 掃除</button>
-    <button class="tab-btn" data-cat="洗濯">👕 洗濯</button>
-    <button class="tab-btn" data-cat="料理">🍳 料理</button>
-    <button class="tab-btn" data-cat="買い物">🛒 買い物</button>
-    <button class="tab-btn" data-cat="その他">📝 その他</button>
-  </div>
+  <!-- ===== 家事管理ページ ===== -->
+  <div id="page-kaji" class="page active">
 
-  <!-- タスク追加 -->
-  <div class="add-form">
-    <h2>タスクを追加</h2>
-    <div class="form-row">
-      <input type="text" id="task-input" placeholder="例: 風呂掃除" maxlength="50" />
-      <select id="cat-select">
-        <option value="掃除">🧹 掃除</option>
-        <option value="洗濯">👕 洗濯</option>
-        <option value="料理">🍳 料理</option>
-        <option value="買い物">🛒 買い物</option>
-        <option value="その他">📝 その他</option>
-      </select>
+    <!-- 今日タブ -->
+    <div id="tab-today" class="kaji-tab active">
+      <div class="today-heading" id="today-heading"></div>
+      <div id="today-list"></div>
     </div>
-    <button class="btn-add" id="btn-add">＋ 追加する</button>
+
+    <!-- 今週タブ -->
+    <div id="tab-week" class="kaji-tab">
+      <div id="week-list"></div>
+    </div>
+
+    <!-- 設定タブ -->
+    <div id="tab-settings" class="kaji-tab">
+      <button class="btn-add-task" id="btn-add-schedule">＋ タスクを追加</button>
+      <div id="schedule-list"></div>
+    </div>
   </div>
 
-  <!-- タスク一覧 -->
-  <div class="section-header">
-    <h2 id="list-title">未完了のタスク</h2>
-    <span class="count-badge" id="todo-count">0</span>
-  </div>
-  <div class="task-list" id="task-list"></div>
-
-  <!-- 完了済みトグル -->
-  <div class="done-toggle" id="done-toggle">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <polyline points="9 18 15 12 9 6"></polyline>
-    </svg>
-    完了済み（<span id="done-count">0</span>件）
-  </div>
-  <div class="task-list" id="done-list" style="display:none"></div>
-  </div><!-- /page-kaji -->
-
-  <!-- 家計簿ページ -->
-  <div id="page-kakeibo">
-    <!-- CSVインポート -->
+  <!-- ===== 家計簿ページ ===== -->
+  <div id="page-kakeibo" class="page">
     <div class="kakeibo-import">
       <p>クレジットカードの利用明細CSVを読み込みます。<br>データはこの端末のみで処理されます。</p>
       <button class="btn-import" id="btn-import">📂 CSVを読み込む</button>
       <input type="file" id="csv-file-input" accept=".csv" />
+      <br>
       <button class="btn-reset" id="btn-reset">🗑️ 全データをリセット</button>
     </div>
-
-    <!-- 月選択 -->
     <div class="kakeibo-month-selector" id="month-selector" style="display:none">
       <button class="month-nav-btn" id="btn-prev-month">‹</button>
       <span id="current-month-label"></span>
       <button class="month-nav-btn" id="btn-next-month">›</button>
     </div>
-
-    <!-- カテゴリ別集計 -->
     <div class="kakeibo-summary" id="kakeibo-summary" style="display:none">
       <h2>カテゴリ別集計（タップで明細表示）</h2>
       <div class="summary-total" id="summary-total"></div>
@@ -571,298 +291,91 @@
       </div>
       <div class="summary-rows" id="summary-rows"></div>
     </div>
-
-    <!-- 明細 -->
     <div class="kakeibo-detail" id="kakeibo-detail" style="display:none">
       <h2 id="detail-title">明細</h2>
       <div id="detail-list"></div>
     </div>
-
     <div class="no-data" id="kakeibo-empty">CSVを読み込むと集計が表示されます</div>
-  </div><!-- /page-kakeibo -->
-
-  <!-- 手動編集モーダル -->
-  <div class="modal-overlay hidden" id="edit-modal">
-    <div class="modal-box">
-      <h3>明細を編集</h3>
-      <label>店名・内容</label>
-      <input type="text" id="edit-name" maxlength="50" />
-      <label>金額（円）※マイナス可</label>
-      <input type="number" id="edit-amount" />
-      <label>カテゴリ</label>
-      <select id="edit-category">
-        <option>娯楽</option>
-        <option>昼食コンビニ</option>
-        <option>昼食外食</option>
-        <option>夕食外食</option>
-        <option>スーパー</option>
-        <option>病院</option>
-        <option>水道代</option>
-        <option>電気代</option>
-        <option>ガス代</option>
-        <option>積立</option>
-        <option>インターネット代</option>
-        <option>家賃</option>
-        <option>振替</option>
-        <option>その他</option>
-      </select>
-      <div class="modal-buttons">
-        <button class="btn-modal-delete" id="btn-modal-delete">削除</button>
-        <button class="btn-modal-cancel" id="btn-modal-cancel">キャンセル</button>
-        <button class="btn-modal-save" id="btn-modal-save">保存</button>
-      </div>
-    </div>
   </div>
 </main>
 
+<!-- スケジュール追加/編集モーダル -->
+<div class="modal-overlay hidden" id="schedule-modal">
+  <div class="modal-box">
+    <h3 id="schedule-modal-title">タスクを追加</h3>
+    <label>タスク名</label>
+    <input type="text" id="sch-name" maxlength="30" placeholder="例: 風呂掃除" />
+    <label>カテゴリ</label>
+    <select id="sch-category">
+      <option>掃除</option><option>洗濯</option><option>料理</option>
+      <option>買い物</option><option>その他</option>
+    </select>
+    <label>頻度</label>
+    <select id="sch-frequency">
+      <option value="weekly">週次（曜日指定）</option>
+      <option value="monthly">月次（日付指定）</option>
+    </select>
+    <div id="sch-weekday-section">
+      <label>曜日（複数可）</label>
+      <div class="weekday-btns" id="sch-weekday-btns">
+        <button type="button" class="wd-btn" data-wd="0">日</button>
+        <button type="button" class="wd-btn" data-wd="1">月</button>
+        <button type="button" class="wd-btn" data-wd="2">火</button>
+        <button type="button" class="wd-btn" data-wd="3">水</button>
+        <button type="button" class="wd-btn" data-wd="4">木</button>
+        <button type="button" class="wd-btn" data-wd="5">金</button>
+        <button type="button" class="wd-btn" data-wd="6">土</button>
+      </div>
+    </div>
+    <div id="sch-monthday-section" style="display:none">
+      <label>日付（毎月何日）</label>
+      <input type="number" id="sch-monthday" min="1" max="28" placeholder="1〜28" />
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-md" id="btn-sch-delete" style="display:none">削除</button>
+      <button class="btn-mc" id="btn-sch-cancel">キャンセル</button>
+      <button class="btn-ms" id="btn-sch-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 家計簿明細編集モーダル -->
+<div class="modal-overlay hidden modal-kakeibo" id="edit-modal">
+  <div class="modal-box">
+    <h3>明細を編集</h3>
+    <label>店名・内容</label>
+    <input type="text" id="edit-name" maxlength="50" />
+    <label>金額</label>
+    <input type="number" id="edit-amount" />
+    <label>カテゴリ</label>
+    <select id="edit-category">
+      <option>娯楽</option><option>昼食コンビニ</option><option>昼食外食</option>
+      <option>夕食外食</option><option>スーパー</option><option>病院</option>
+      <option>水道代</option><option>電気代</option><option>ガス代</option>
+      <option>積立</option><option>インターネット代</option><option>家賃</option>
+      <option>振替</option><option>その他</option>
+    </select>
+    <div class="modal-buttons">
+      <button class="btn-md" id="btn-modal-delete">削除</button>
+      <button class="btn-mc" id="btn-modal-cancel">キャンセル</button>
+      <button class="btn-ms-kakeibo" id="btn-modal-save">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
-// ============================================================
-//  データ層 — ここを Firebase に差し替えると共有対応になります
-//
-//  【Firebase移行時の変更手順】
-//  1. <head> に Firebase SDK の <script> タグを追加
-//  2. Storage オブジェクト（下記）の load/save を
-//     Firestore の getDocs/setDoc に置き換える
-//  3. 認証が必要な場合は Auth モジュールを追加する
-// ============================================================
-const Storage = {
-  KEY: 'kaji_tasks_v1',
-
-  load() {
-    try {
-      return JSON.parse(localStorage.getItem(this.KEY)) || [];
-    } catch {
-      return [];
-    }
-  },
-
-  save(tasks) {
-    localStorage.setItem(this.KEY, JSON.stringify(tasks));
-  }
-};
-
-// ============================================================
-//  アプリ状態
-// ============================================================
-let tasks = Storage.load();
-let currentCat = 'すべて';
-let doneOpen = false;
 
 // ============================================================
 //  ユーティリティ
 // ============================================================
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function formatDate(iso) {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function today() {
-  return new Date().toLocaleDateString('ja-JP', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'
-  });
-}
-
-// ============================================================
-//  描画
-// ============================================================
-function render() {
-  const filtered = currentCat === 'すべて'
-    ? tasks
-    : tasks.filter(t => t.category === currentCat);
-
-  const todo = filtered.filter(t => !t.done);
-  const done = filtered.filter(t => t.done);
-
-  document.getElementById('todo-count').textContent = todo.length;
-  document.getElementById('done-count').textContent = done.length;
-
-  renderList('task-list', todo);
-  renderList('done-list', done);
-}
-
-function renderList(containerId, items) {
-  const container = document.getElementById(containerId);
-
-  if (items.length === 0) {
-    if (containerId === 'task-list') {
-      container.innerHTML = `
-        <div class="empty">
-          <div class="icon">✨</div>
-          <p>未完了のタスクはありません</p>
-        </div>`;
-    } else {
-      container.innerHTML = '';
-    }
-    return;
-  }
-
-  container.innerHTML = items.map(t => `
-    <div class="task-item ${t.done ? 'done' : ''}" data-id="${t.id}">
-      <div class="task-check" onclick="toggleDone('${t.id}')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      </div>
-      <div class="task-body">
-        <div class="task-name">${escapeHtml(t.name)}</div>
-        <div class="task-meta">
-          <span class="cat-tag cat-${t.category}">${t.category}</span>
-          <span class="task-date">${formatDate(t.createdAt)}</span>
-        </div>
-      </div>
-      <button class="btn-delete" onclick="deleteTask('${t.id}')" aria-label="削除">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6l-1 14H6L5 6"></path>
-          <path d="M10 11v6M14 11v6"></path>
-          <path d="M9 6V4h6v2"></path>
-        </svg>
-      </button>
-    </div>
-  `).join('');
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-// ============================================================
-//  操作
-// ============================================================
-function addTask() {
-  const input = document.getElementById('task-input');
-  const name = input.value.trim();
-  if (!name) {
-    input.focus();
-    return;
-  }
-  const cat = document.getElementById('cat-select').value;
-
-  // ============================================================
-  //  【Firebase移行時】ここを Firestore の addDoc に置き換える
-  //  例: await addDoc(collection(db, 'tasks'), { name, category: cat, done: false, createdAt: new Date() })
-  // ============================================================
-  tasks.unshift({
-    id: genId(),
-    name,
-    category: cat,
-    done: false,
-    createdAt: new Date().toISOString()
-  });
-
-  Storage.save(tasks);
-  input.value = '';
-  input.focus();
-  render();
-}
-
-function toggleDone(id) {
-  // ============================================================
-  //  【Firebase移行時】ここを Firestore の updateDoc に置き換える
-  // ============================================================
-  const task = tasks.find(t => t.id === id);
-  if (task) {
-    task.done = !task.done;
-    Storage.save(tasks);
-    render();
-  }
-}
-
-function deleteTask(id) {
-  // ============================================================
-  //  【Firebase移行時】ここを Firestore の deleteDoc に置き換える
-  // ============================================================
-  tasks = tasks.filter(t => t.id !== id);
-  Storage.save(tasks);
-  render();
-}
-
-// ============================================================
-//  イベント登録
-// ============================================================
-
-// 追加ボタン
-document.getElementById('btn-add').addEventListener('click', addTask);
-
-// Enterキーで追加
-document.getElementById('task-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addTask();
-});
-
-// カテゴリタブ
-document.getElementById('category-tabs').addEventListener('click', e => {
-  const btn = e.target.closest('.tab-btn');
-  if (!btn) return;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  currentCat = btn.dataset.cat;
-  render();
-});
-
-// 完了済みトグル
-document.getElementById('done-toggle').addEventListener('click', () => {
-  doneOpen = !doneOpen;
-  document.getElementById('done-list').style.display = doneOpen ? 'flex' : 'none';
-  document.getElementById('done-list').style.flexDirection = 'column';
-  document.getElementById('done-list').style.gap = '8px';
-  document.getElementById('done-toggle').classList.toggle('open', doneOpen);
-});
-
-// ============================================================
-//  初期化
-// ============================================================
-document.getElementById('today-date').textContent = today();
-render();
-
-// ============================================================
-//  ページナビゲーション
-// ============================================================
-document.querySelector('.page-nav').addEventListener('click', e => {
-  const btn = e.target.closest('.page-nav-btn');
-  if (!btn) return;
-  const page = btn.dataset.page;
-  document.querySelectorAll('.page-nav-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('page-kaji').style.display = page === 'kaji' ? 'block' : 'none';
-  document.getElementById('page-kakeibo').style.display = page === 'kakeibo' ? 'block' : 'none';
-});
-
-// ============================================================
-//  家計簿 — カテゴリ定義
-// ============================================================
-const KAKEIBO_CATEGORIES = [
-  { name: '振替',           color: '#9ca3af', keywords: ['口座振替', '前回分'] },
-  { name: '娯楽',           color: '#3b82f6', keywords: ['シネマ', '映画', 'ゲーム', 'アミューズ', 'カラオケ', 'ボウリング', 'イオンシネマ', '駐車場', 'パーキング', 'ENEOS', 'Ｅｎｅｏｓ', 'エネオス', 'ガソリン', '洗車', 'オートバックス', 'イエローハット'] },
-  { name: '昼食コンビニ',   color: '#fbbf24', keywords: ['セブン', 'ファミマ', 'ローソン', 'ミニストップ', 'デイリーヤマザキ'] },
-  { name: '昼食外食',       color: '#f59e0b', keywords: ['マクドナルド', 'すき家', '吉野家', 'モスバーガー', 'ケンタッキー', 'サブウェイ', 'ほっともっと', '松屋'] },
-  { name: '夕食外食',       color: '#f97316', keywords: ['ねぎし', 'バーミヤン', 'にくの助', 'デニーズ', 'ガスト', 'サイゼリヤ', 'レストラン', 'izakaya', '居酒屋', 'しゃぶ', 'やきにく', '焼肉', '寿司', 'すし', 'ラーメン'] },
-  { name: 'スーパー',       color: '#22c55e', keywords: ['まいばすけっと', 'オーケー', 'イオン', '西友', 'ライフ', 'マルエツ', 'ヨークマート', 'ピアゴ', 'コープ', '高島屋', '島屋', 'ルミネ'] },
-  { name: '病院',           color: '#f43f5e', keywords: ['クリニック', '病院', '薬局', 'ドラッグ', 'マツキヨ', 'ウエルシア', 'ツルハ', '調剤', 'ＡＲＴ', '医院', '歯科'] },
-  { name: '水道代',         color: '#0ea5e9', keywords: ['水道', '上下水道'] },
-  { name: '電気代',         color: '#eab308', keywords: ['電力', '東京電力', '関西電力', '中部電力', '電気'] },
-  { name: 'ガス代',         color: '#ef4444', keywords: ['東京ガス', '大阪ガス', 'ガス'] },
-  { name: '積立',           color: '#10b981', keywords: ['ベネフィット', '保険', '積立', '年金', '定期'] },
-  { name: 'インターネット代',color: '#8b5cf6', keywords: ['ドコモ', 'au', 'ソフトバンク', 'ＳＯＦＴＢＡＮＫ', '楽天モバイル', 'ＮＴＴ', 'フレッツ', 'ビッグローブ', 'インターネット', 'Ｗｉ－Ｆｉ'] },
-  { name: '家賃',           color: '#ec4899', keywords: [] }, // CSVには出ない・自動追加
-];
-
-function classifyCategory(name) {
-  for (const cat of KAKEIBO_CATEGORIES) {
-    if (cat.keywords.some(kw => name.includes(kw))) return cat.name;
-  }
-  return 'その他';
-}
-
-function categoryColor(name) {
-  const cat = KAKEIBO_CATEGORIES.find(c => c.name === name);
-  return cat ? cat.color : '#6b7280';
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ============================================================
@@ -878,103 +391,375 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const RECORDS_DOC = db.collection('kakeibo').doc('records_v1');
 
 // ============================================================
-//  家計簿 — データ層（Firestore + localStorageフォールバック）
+//  家事管理 — データ層
 // ============================================================
+const KAJI_SCH_DOC  = db.collection('kaji').doc('schedules');
+const KAJI_COMP_DOC = db.collection('kaji').doc('completions');
+
+const KajiStorage = {
+  SCH_KEY:  'kaji_schedules_v1',
+  COMP_KEY: 'kaji_completions_v1',
+
+  async loadSchedules() {
+    try {
+      const snap = await KAJI_SCH_DOC.get();
+      if (snap.exists) {
+        const data = snap.data().list || [];
+        localStorage.setItem(this.SCH_KEY, JSON.stringify(data));
+        return data;
+      }
+      return JSON.parse(localStorage.getItem(this.SCH_KEY)) || [];
+    } catch(e) {
+      return JSON.parse(localStorage.getItem(this.SCH_KEY)) || [];
+    }
+  },
+  async saveSchedules(list) {
+    localStorage.setItem(this.SCH_KEY, JSON.stringify(list));
+    try { await KAJI_SCH_DOC.set({ list, updatedAt: new Date() }); } catch(e){}
+  },
+  async loadCompletions() {
+    try {
+      const snap = await KAJI_COMP_DOC.get();
+      if (snap.exists) {
+        let data = snap.data().list || [];
+        // 90日以上古いものを削除
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+        data = data.filter(c => new Date(c.date) >= cutoff);
+        localStorage.setItem(this.COMP_KEY, JSON.stringify(data));
+        return data;
+      }
+      return JSON.parse(localStorage.getItem(this.COMP_KEY)) || [];
+    } catch(e) {
+      return JSON.parse(localStorage.getItem(this.COMP_KEY)) || [];
+    }
+  },
+  async saveCompletions(list) {
+    localStorage.setItem(this.COMP_KEY, JSON.stringify(list));
+    try { await KAJI_COMP_DOC.set({ list, updatedAt: new Date() }); } catch(e){}
+  }
+};
+
+// ============================================================
+//  家事管理 — 状態
+// ============================================================
+let kajiSchedules   = [];  // スケジュールマスタ
+let kajiCompletions = [];  // 完了履歴
+let editingScheduleId = null;
+
+// ============================================================
+//  家事管理 — ヘルパー
+// ============================================================
+const WEEKDAY_NAMES = ['日','月','火','水','木','金','土'];
+
+function getWeekDates() {
+  // 今週月曜から日曜まで（月曜始まり）
+  const today = new Date();
+  const day = today.getDay(); // 0=日
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    dates.push(d);
+  }
+  return dates;
+}
+
+function getSchedulesForDate(date) {
+  const wd = date.getDay();
+  const day = date.getDate();
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  return kajiSchedules.filter(s => {
+    if (s.frequency === 'weekly') return s.weekdays && s.weekdays.includes(wd);
+    if (s.frequency === 'monthly') return s.monthDay === day;
+    return false;
+  }).map(s => ({
+    ...s,
+    dateStr,
+    done: kajiCompletions.some(c => c.scheduleId === s.id && c.date === dateStr)
+  }));
+}
+
+async function toggleCompletion(scheduleId, dateStr) {
+  const idx = kajiCompletions.findIndex(c => c.scheduleId === scheduleId && c.date === dateStr);
+  if (idx >= 0) {
+    kajiCompletions.splice(idx, 1);
+  } else {
+    kajiCompletions.push({ id: genId(), scheduleId, date: dateStr });
+  }
+  await KajiStorage.saveCompletions(kajiCompletions);
+}
+
+// ============================================================
+//  家事管理 — 描画
+// ============================================================
+function renderToday() {
+  const today = new Date();
+  const todayDateStr = todayStr();
+  const wd = today.getDay();
+  const tasks = getSchedulesForDate(today);
+
+  document.getElementById('today-heading').textContent =
+    `${today.getMonth()+1}月${today.getDate()}日（${WEEKDAY_NAMES[wd]}）`;
+
+  if (tasks.length === 0) {
+    document.getElementById('today-list').innerHTML =
+      `<div class="empty-state"><div class="icon">✨</div><p>今日の家事はありません</p></div>`;
+    return;
+  }
+
+  const todo = tasks.filter(t => !t.done);
+  const done = tasks.filter(t => t.done);
+  const checkSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+  const renderItem = t => `
+    <div class="task-item ${t.done ? 'done' : ''}" id="task-${t.id}">
+      <div class="task-check" onclick="onToggleToday('${t.id}','${t.dateStr}')">
+        ${checkSvg}
+      </div>
+      <div class="task-body">
+        <div class="task-name">${escapeHtml(t.name)}</div>
+        <div class="task-sub">${t.frequency === 'weekly' ? t.weekdays.map(w=>WEEKDAY_NAMES[w]).join('・')+'曜' : `毎月${t.monthDay}日`}</div>
+      </div>
+      <span class="cat-tag cat-${escapeHtml(t.category)}">${escapeHtml(t.category)}</span>
+    </div>`;
+
+  document.getElementById('today-list').innerHTML =
+    [...todo, ...done].map(renderItem).join('');
+}
+
+function renderWeek() {
+  const dates = getWeekDates();
+  const todayDateStr = todayStr();
+  const checkSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+  document.getElementById('week-list').innerHTML = dates.map(date => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    const tasks = getSchedulesForDate(date);
+    const isToday = dateStr === todayDateStr;
+    const label = `${date.getMonth()+1}/${date.getDate()}（${WEEKDAY_NAMES[date.getDay()]}）`;
+    if (tasks.length === 0) return '';
+    const rows = tasks.map(t => `
+      <div class="week-task-row ${t.done ? 'done' : ''}" id="wtask-${t.id}-${dateStr}">
+        <div class="week-check" onclick="onToggleWeek('${t.id}','${dateStr}')">
+          ${checkSvg}
+        </div>
+        <span class="week-task-name">${escapeHtml(t.name)}</span>
+        <span class="cat-tag cat-${escapeHtml(t.category)}" style="font-size:0.65rem">${escapeHtml(t.category)}</span>
+      </div>`).join('');
+    return `<div class="week-day-section">
+      <div class="week-day-label ${isToday ? 'today' : ''}">${label}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  if (!document.getElementById('week-list').innerHTML.trim()) {
+    document.getElementById('week-list').innerHTML =
+      `<div class="empty-state"><div class="icon">📅</div><p>今週の家事はありません</p></div>`;
+  }
+}
+
+function renderSettings() {
+  if (kajiSchedules.length === 0) {
+    document.getElementById('schedule-list').innerHTML =
+      `<div class="empty-state"><div class="icon">⚙️</div><p>タスクが登録されていません</p></div>`;
+    return;
+  }
+  document.getElementById('schedule-list').innerHTML = kajiSchedules.map(s => {
+    const detail = s.frequency === 'weekly'
+      ? (s.weekdays||[]).map(w=>WEEKDAY_NAMES[w]).join('・') + '曜'
+      : `毎月${s.monthDay}日`;
+    return `
+      <div class="schedule-item">
+        <div class="schedule-info">
+          <div class="schedule-name">${escapeHtml(s.name)}</div>
+          <div class="schedule-detail"><span class="cat-tag cat-${escapeHtml(s.category)}">${escapeHtml(s.category)}</span> ${detail}</div>
+        </div>
+        <button class="btn-edit-sch" onclick="openScheduleModal('${s.id}')">編集</button>
+      </div>`;
+  }).join('');
+}
+
+function renderKajiAll() {
+  renderToday();
+  renderWeek();
+  renderSettings();
+}
+
+// ============================================================
+//  家事管理 — スケジュールモーダル
+// ============================================================
+function openScheduleModal(id) {
+  editingScheduleId = id || null;
+  const sch = id ? kajiSchedules.find(s => s.id === id) : null;
+  document.getElementById('schedule-modal-title').textContent = sch ? 'タスクを編集' : 'タスクを追加';
+  document.getElementById('sch-name').value = sch ? sch.name : '';
+  document.getElementById('sch-category').value = sch ? sch.category : '掃除';
+  document.getElementById('sch-frequency').value = sch ? sch.frequency : 'weekly';
+  document.getElementById('sch-monthday').value = sch ? (sch.monthDay||1) : 1;
+  document.getElementById('btn-sch-delete').style.display = sch ? 'block' : 'none';
+
+  // 曜日ボタン初期化
+  document.querySelectorAll('.wd-btn').forEach(btn => {
+    const wd = parseInt(btn.dataset.wd);
+    btn.classList.toggle('selected', sch && sch.frequency === 'weekly' && (sch.weekdays||[]).includes(wd));
+  });
+
+  updateSchModalSections();
+  document.getElementById('schedule-modal').classList.remove('hidden');
+}
+
+function updateSchModalSections() {
+  const freq = document.getElementById('sch-frequency').value;
+  document.getElementById('sch-weekday-section').style.display = freq === 'weekly' ? 'block' : 'none';
+  document.getElementById('sch-monthday-section').style.display = freq === 'monthly' ? 'block' : 'none';
+}
+
+document.getElementById('sch-frequency').addEventListener('change', updateSchModalSections);
+
+document.querySelectorAll('.wd-btn').forEach(btn => {
+  btn.addEventListener('click', () => btn.classList.toggle('selected'));
+});
+
+document.getElementById('btn-sch-cancel').addEventListener('click', () => {
+  document.getElementById('schedule-modal').classList.add('hidden');
+});
+
+document.getElementById('btn-sch-save').addEventListener('click', async () => {
+  const name = document.getElementById('sch-name').value.trim();
+  if (!name) { alert('タスク名を入力してください'); return; }
+  const freq = document.getElementById('sch-frequency').value;
+  const weekdays = freq === 'weekly'
+    ? Array.from(document.querySelectorAll('.wd-btn.selected')).map(b => parseInt(b.dataset.wd))
+    : [];
+  if (freq === 'weekly' && weekdays.length === 0) { alert('曜日を1つ以上選択してください'); return; }
+  const monthDay = freq === 'monthly' ? parseInt(document.getElementById('sch-monthday').value)||1 : null;
+
+  if (editingScheduleId) {
+    const sch = kajiSchedules.find(s => s.id === editingScheduleId);
+    if (sch) { sch.name = name; sch.category = document.getElementById('sch-category').value; sch.frequency = freq; sch.weekdays = weekdays; sch.monthDay = monthDay; }
+  } else {
+    kajiSchedules.push({ id: genId(), name, category: document.getElementById('sch-category').value, frequency: freq, weekdays, monthDay });
+  }
+  await KajiStorage.saveSchedules(kajiSchedules);
+  document.getElementById('schedule-modal').classList.add('hidden');
+  renderKajiAll();
+});
+
+document.getElementById('btn-sch-delete').addEventListener('click', async () => {
+  if (!confirm('このタスクを削除しますか？')) return;
+  kajiSchedules = kajiSchedules.filter(s => s.id !== editingScheduleId);
+  await KajiStorage.saveSchedules(kajiSchedules);
+  document.getElementById('schedule-modal').classList.add('hidden');
+  renderKajiAll();
+});
+
+document.getElementById('btn-add-schedule').addEventListener('click', () => openScheduleModal(null));
+
+async function onToggleToday(schId, dateStr) {
+  await toggleCompletion(schId, dateStr);
+  renderToday();
+  renderWeek();
+}
+async function onToggleWeek(schId, dateStr) {
+  await toggleCompletion(schId, dateStr);
+  renderWeek();
+  renderToday();
+}
+
+
+// ============================================================
+//  家計簿 — カテゴリ定義
+// ============================================================
+const KAKEIBO_CATEGORIES = [
+  { name: '振替',           color: '#9ca3af', keywords: ['口座振替', '前回分'] },
+  { name: '娯楽',           color: '#3b82f6', keywords: ['シネマ','映画','ゲーム','アミューズ','カラオケ','ボウリング','イオンシネマ','駐車場','パーキング','ENEOS','Ｅｎｅｏｓ','エネオス','ガソリン','洗車','オートバックス','イエローハット'] },
+  { name: '昼食コンビニ',   color: '#fbbf24', keywords: ['セブン','ファミマ','ローソン','ミニストップ','デイリーヤマザキ'] },
+  { name: '昼食外食',       color: '#f59e0b', keywords: ['マクドナルド','すき家','吉野家','モスバーガー','ケンタッキー','サブウェイ','ほっともっと','松屋'] },
+  { name: '夕食外食',       color: '#f97316', keywords: ['ねぎし','バーミヤン','にくの助','デニーズ','ガスト','サイゼリヤ','レストラン','izakaya','居酒屋','しゃぶ','やきにく','焼肉','寿司','すし','ラーメン'] },
+  { name: 'スーパー',       color: '#22c55e', keywords: ['まいばすけっと','オーケー','イオン','西友','ライフ','マルエツ','ヨークマート','ピアゴ','コープ','高島屋','島屋','ルミネ'] },
+  { name: '病院',           color: '#f43f5e', keywords: ['クリニック','病院','薬局','ドラッグ','マツキヨ','ウエルシア','ツルハ','調剤','ＡＲＴ','医院','歯科'] },
+  { name: '水道代',         color: '#0ea5e9', keywords: ['水道','上下水道'] },
+  { name: '電気代',         color: '#eab308', keywords: ['電力','東京電力','関西電力','中部電力','電気'] },
+  { name: 'ガス代',         color: '#ef4444', keywords: ['東京ガス','大阪ガス','ガス'] },
+  { name: '積立',           color: '#10b981', keywords: ['ベネフィット','保険','積立','年金','定期'] },
+  { name: 'インターネット代',color: '#8b5cf6', keywords: ['ドコモ','au','ソフトバンク','ＳＯＦＴＢＡＮＫ','楽天モバイル','ＮＴＴ','フレッツ','ビッグローブ','インターネット','Ｗｉ－Ｆｉ'] },
+  { name: '家賃',           color: '#ec4899', keywords: [] },
+];
+function classifyCategory(name) {
+  for (const cat of KAKEIBO_CATEGORIES) {
+    if (cat.keywords.some(kw => name.includes(kw))) return cat.name;
+  }
+  return 'その他';
+}
+function categoryColor(name) {
+  const cat = KAKEIBO_CATEGORIES.find(c => c.name === name);
+  return cat ? cat.color : '#6b7280';
+}
+
+// ============================================================
+//  家計簿 — データ層
+// ============================================================
+const RECORDS_DOC = db.collection('kakeibo').doc('records_v1');
 const KakeiboStorage = {
   LS_KEY: 'kakeibo_records_v1',
-
-  // Firestoreから読み込み（失敗時はlocalStorageにフォールバック）
   async load() {
     try {
       const snap = await RECORDS_DOC.get();
       if (snap.exists) {
         const data = snap.data().records || [];
-        // localStorageにもキャッシュ
         localStorage.setItem(this.LS_KEY, JSON.stringify(data));
         return data;
       }
-      // Firestoreにデータなし → localStorageから移行
       const local = this.loadLocal();
-      if (local.length > 0) await this.save(local); // localデータをFirestoreに移行
+      if (local.length > 0) await this.save(local);
       return local;
-    } catch (e) {
-      console.warn('Firestore読み込み失敗、localStorageを使用:', e);
-      return this.loadLocal();
-    }
+    } catch(e) { return this.loadLocal(); }
   },
-
-  // Firestoreに保存（同時にlocalStorageにもキャッシュ）
   async save(records) {
     localStorage.setItem(this.LS_KEY, JSON.stringify(records));
-    try {
-      await RECORDS_DOC.set({ records, updatedAt: new Date() });
-    } catch (e) {
-      console.warn('Firestore保存失敗、localStorageのみ保存:', e);
-    }
+    try { await RECORDS_DOC.set({ records, updatedAt: new Date() }); } catch(e){}
   },
-
   loadLocal() {
-    try {
-      return JSON.parse(localStorage.getItem(this.LS_KEY)) || [];
-    } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(this.LS_KEY)) || []; } catch { return []; }
   }
 };
 
 // ============================================================
-//  家計簿 — CSV パース（Shift-JIS対応）
+//  家計簿 — CSV パース
 // ============================================================
 function parseKakeiboCSV(buffer) {
-  // Shift-JIS → UTF-8 デコード
   const decoder = new TextDecoder('shift-jis');
   const text = decoder.decode(buffer);
   const lines = text.split(/\r?\n/).filter(l => l.trim());
-
   const records = [];
-  // 1行目はヘッダー行なのでスキップ
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSVLine(lines[i]);
     if (cols.length < 6) continue;
-
-    const dateStr = cols[0].trim();   // ご利用日
-    const name    = cols[2].trim();   // ご利用内容
-    const amtRaw  = cols[5].trim();   // 金額
-
+    const dateStr = cols[0].trim();
+    const name    = cols[2].trim();
+    const amtRaw  = cols[5].trim();
     if (!dateStr || !name || !amtRaw) continue;
-
-    // 金額: カンマ・ダブルクォート・スペース除去・数値化
-    const amtCleaned = amtRaw.replace(/"/g, '').replace(/,/g, '').trim();
-    const amount = parseInt(amtCleaned, 10);
-    if (isNaN(amount) || amount === 0) continue; // 0と変換失敗のみ除外
-
+    const amount = parseInt(amtRaw.replace(/"/g,'').replace(/,/g,'').trim(), 10);
+    if (isNaN(amount) || amount === 0) continue;
     records.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + i,
-      date: dateStr,
-      name: name,
-      amount: amount,  // マイナスはマイナスのまま保存
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,5) + i,
+      date: dateStr, name, amount,
       category: amount < 0 ? '振替' : classifyCategory(name)
     });
   }
   return records;
 }
-
-// CSVの1行をカンマ分割（ダブルクォート対応）
 function splitCSVLine(line) {
-  const result = [];
-  let current = '';
-  let inQuote = false;
+  const result = []; let current = ''; let inQuote = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
-    if (ch === '"') {
-      inQuote = !inQuote;
-    } else if (ch === ',' && !inQuote) {
-      result.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
+    if (ch === '"') { inQuote = !inQuote; }
+    else if (ch === ',' && !inQuote) { result.push(current); current = ''; }
+    else { current += ch; }
   }
   result.push(current);
   return result;
@@ -983,14 +768,14 @@ function splitCSVLine(line) {
 // ============================================================
 //  家計簿 — 状態
 // ============================================================
-let kakeiboRecords = [];   // 起動時はFirestoreから非同期ロード
-let kakeiboMonths  = [];   // 存在する月リスト ["2026/07", "2026/06", ...]
-let currentMonthIdx = 0;   // kakeiboMonths のインデックス
+let kakeiboRecords = [];
+let kakeiboMonths  = [];
+let currentMonthIdx = 0;
 let selectedCategory = null;
 
 function buildMonthList() {
-  const monthSet = new Set(kakeiboRecords.map(r => r.date.slice(0, 7)));
-  kakeiboMonths = Array.from(monthSet).sort().reverse(); // 新しい月順
+  const monthSet = new Set(kakeiboRecords.map(r => r.date.slice(0,7)));
+  kakeiboMonths = Array.from(monthSet).sort().reverse();
 }
 
 // ============================================================
@@ -998,139 +783,81 @@ function buildMonthList() {
 // ============================================================
 async function renderKakeibo() {
   const hasData = kakeiboRecords.length > 0;
-  document.getElementById('kakeibo-empty').style.display = hasData ? 'none' : 'block';
-  document.getElementById('month-selector').style.display = hasData ? 'flex' : 'none';
-  document.getElementById('kakeibo-summary').style.display = hasData ? 'block' : 'none';
-
-  if (!hasData) {
-    document.getElementById('kakeibo-detail').style.display = 'none';
-    return;
-  }
+  document.getElementById('kakeibo-empty').style.display  = hasData ? 'none'  : 'block';
+  document.getElementById('month-selector').style.display = hasData ? 'flex'  : 'none';
+  document.getElementById('kakeibo-summary').style.display= hasData ? 'block' : 'none';
+  if (!hasData) { document.getElementById('kakeibo-detail').style.display = 'none'; return; }
 
   buildMonthList();
   if (currentMonthIdx >= kakeiboMonths.length) currentMonthIdx = 0;
   const month = kakeiboMonths[currentMonthIdx];
-  document.getElementById('current-month-label').textContent =
-    month.replace('/', '年') + '月';
+  document.getElementById('current-month-label').textContent = month.replace('/','年') + '月';
 
-  // 家賃を表示月に自動補完（まだなければ追加して保存）
   const hasRent = kakeiboRecords.some(r => r.category === '家賃' && r.date.startsWith(month));
   if (!hasRent) {
-    kakeiboRecords.push({
-      id: `rent_${month}`,
-      date: `${month}/01`,
-      name: '家賃',
-      amount: 100000,
-      category: '家賃'
-    });
-    kakeiboRecords.sort((a, b) => b.date.localeCompare(a.date));
+    kakeiboRecords.push({ id:`rent_${month}`, date:`${month}/01`, name:'家賃', amount:100000, category:'家賃' });
+    kakeiboRecords.sort((a,b) => b.date.localeCompare(a.date));
     await KakeiboStorage.save(kakeiboRecords);
   }
 
-  // 当月レコード
   const monthRecords = kakeiboRecords.filter(r => r.date.startsWith(month));
-
-  // カテゴリ別集計（振替は除外）
-  const catMap = {};
-  let totalAmt = 0;
+  const catMap = {}; let totalAmt = 0;
   for (const r of monthRecords) {
-    if (r.category === '振替') continue; // 合計・グラフから除外
-    catMap[r.category] = (catMap[r.category] || 0) + r.amount;
+    if (r.category === '振替') continue;
+    catMap[r.category] = (catMap[r.category]||0) + r.amount;
     totalAmt += r.amount;
   }
+  const sign = totalAmt < 0 ? '-' : '';
+  document.getElementById('summary-total').textContent = `合計 ${sign}¥${Math.abs(totalAmt).toLocaleString()}`;
 
-  // 合計表示（マイナス対応）
-  const totalSign = totalAmt < 0 ? '-' : '';
-  document.getElementById('summary-total').textContent =
-    `合計 ${totalSign}¥${Math.abs(totalAmt).toLocaleString()}`;
-
-  const sortedCats = Object.entries(catMap).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-
-  // 円グラフ描画（支出のみ、プラス金額で描画）
+  const sortedCats = Object.entries(catMap).sort((a,b) => Math.abs(b[1])-Math.abs(a[1]));
   drawPieChart(sortedCats);
 
-  // 棒グラフ（横棒）
-  const maxAmt = Math.max(...sortedCats.map(([,v]) => Math.abs(v)), 1);
-  document.getElementById('summary-rows').innerHTML = sortedCats.map(([cat, amt]) => {
-    const pct = Math.round((Math.abs(amt) / maxAmt) * 100);
+  const maxAmt = Math.max(...sortedCats.map(([,v])=>Math.abs(v)), 1);
+  document.getElementById('summary-rows').innerHTML = sortedCats.map(([cat,amt]) => {
+    const pct = Math.round((Math.abs(amt)/maxAmt)*100);
     const color = categoryColor(cat);
     const isActive = selectedCategory === cat ? 'active' : '';
-    const sign = amt < 0 ? '-' : '';
-    return `
-      <div class="summary-row ${isActive}" data-cat="${escapeHtml(cat)}" onclick="selectCategory('${escapeHtml(cat)}')">
-        <span class="summary-cat-label">${escapeHtml(cat)}</span>
-        <div class="summary-bar-wrap">
-          <div class="summary-bar" style="width:${pct}%;background:${color}"></div>
-        </div>
-        <span class="summary-amount" style="color:${amt < 0 ? 'var(--danger)' : 'inherit'}">${sign}¥${Math.abs(amt).toLocaleString()}</span>
-      </div>`;
+    const s = amt < 0 ? '-' : '';
+    return `<div class="summary-row ${isActive}" data-cat="${escapeHtml(cat)}" onclick="selectCategory('${escapeHtml(cat)}')">
+      <span class="summary-cat-label">${escapeHtml(cat)}</span>
+      <div class="summary-bar-wrap"><div class="summary-bar" style="width:${pct}%;background:${color}"></div></div>
+      <span class="summary-amount" style="color:${amt<0?'var(--danger)':'inherit'}">${s}¥${Math.abs(amt).toLocaleString()}</span>
+    </div>`;
   }).join('');
 
-  // 明細
   renderDetail(monthRecords);
 }
 
 let pieChartInstance = null;
-
 function drawPieChart(sortedCats) {
-  const positive = sortedCats.filter(([, v]) => v > 0);
-  const total = positive.reduce((s, [, v]) => s + v, 0);
+  const positive = sortedCats.filter(([,v]) => v > 0);
+  const total = positive.reduce((s,[,v]) => s+v, 0);
   if (total === 0) return;
-
   const labels = positive.map(([cat]) => cat);
-  const data   = positive.map(([, amt]) => amt);
+  const data   = positive.map(([,amt]) => amt);
   const colors = positive.map(([cat]) => categoryColor(cat));
-
   const canvas = document.getElementById('pie-chart');
-
-  // 既存インスタンスを破棄してから再生成
-  if (pieChartInstance) {
-    pieChartInstance.destroy();
-    pieChartInstance = null;
-  }
-
+  if (pieChartInstance) { pieChartInstance.destroy(); pieChartInstance = null; }
   pieChartInstance = new Chart(canvas, {
     type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors,
-        borderColor: '#fff',
-        borderWidth: 2,
-        hoverOffset: 6,
-      }]
-    },
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor:'#fff', borderWidth:2, hoverOffset:6 }] },
     options: {
-      responsive: true,
-      cutout: '58%',
+      responsive: true, cutout: '58%',
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const pct = Math.round((ctx.raw / total) * 100);
-              return ` ${ctx.label}  ¥${ctx.raw.toLocaleString()} (${pct}%)`;
-            }
-          }
-        },
+        tooltip: { callbacks: { label: ctx => { const pct=Math.round((ctx.raw/total)*100); return ` ${ctx.label}  ¥${ctx.raw.toLocaleString()} (${pct}%)`; } } }
       },
-      animation: { duration: 400 },
-    },
+      animation: { duration: 400 }
+    }
   });
-
-  // カスタム凡例を描画
   const legendEl = document.getElementById('pie-legend');
   legendEl.innerHTML = '';
-  positive.forEach(([cat, amt], i) => {
-    const pct = Math.round((amt / total) * 100);
+  positive.forEach(([cat,amt],i) => {
+    const pct = Math.round((amt/total)*100);
     const item = document.createElement('div');
     item.style.cssText = 'display:flex;align-items:center;gap:5px;cursor:pointer;';
-    item.innerHTML = `
-      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colors[i]};flex-shrink:0;"></span>
-      <span>${cat} <strong>${pct}%</strong></span>
-    `;
-    // 凡例クリックでスライスのハイライト切り替え
+    item.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colors[i]};flex-shrink:0;"></span><span>${cat} <strong>${pct}%</strong></span>`;
     item.addEventListener('click', () => {
       const meta = pieChartInstance.getDatasetMeta(0);
       const arcEl = meta.data[i];
@@ -1149,34 +876,22 @@ function selectCategory(cat) {
 
 function renderDetail(monthRecords) {
   const detailEl = document.getElementById('kakeibo-detail');
-  const records = selectedCategory
-    ? monthRecords.filter(r => r.category === selectedCategory)
-    : monthRecords;
-
-  if (records.length === 0) {
-    detailEl.style.display = 'none';
-    return;
-  }
-
+  const records = selectedCategory ? monthRecords.filter(r => r.category === selectedCategory) : monthRecords;
+  if (records.length === 0) { detailEl.style.display = 'none'; return; }
   detailEl.style.display = 'block';
-  document.getElementById('detail-title').textContent =
-    selectedCategory ? `${selectedCategory} の明細` : 'すべての明細';
-
+  document.getElementById('detail-title').textContent = selectedCategory ? `${selectedCategory} の明細` : 'すべての明細';
   document.getElementById('detail-list').innerHTML = records.map(r => {
     const color = categoryColor(r.category);
     const sign = r.amount < 0 ? '-' : '';
     const isTransfer = r.category === '振替';
-    const transferNote = isTransfer
-      ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px;">（参考）</span>`
-      : '';
-    return `
-      <div class="detail-item" style="${isTransfer ? 'opacity:0.6;' : ''}">
-        <span class="detail-date">${r.date.slice(5).replace('/', '/')}</span>
-        <span class="detail-name">${escapeHtml(r.name)}${transferNote}</span>
-        <span class="detail-cat-tag kcat-${escapeHtml(r.category)}" style="background:${color}22;color:${color}">${escapeHtml(r.category)}</span>
-        <span class="detail-amount" style="color:${r.amount < 0 ? 'var(--danger)' : 'inherit'}">${sign}¥${Math.abs(r.amount).toLocaleString()}</span>
-        <button class="btn-delete" style="flex-shrink:0" onclick="openEditModal('${escapeHtml(r.id || '')}')">✏️</button>
-      </div>`;
+    const transferNote = isTransfer ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px;">（参考）</span>` : '';
+    return `<div class="detail-item" style="${isTransfer?'opacity:0.6;':''}">
+      <span class="detail-date">${r.date.slice(5).replace('/','/') }</span>
+      <span class="detail-name">${escapeHtml(r.name)}${transferNote}</span>
+      <span class="detail-cat-tag kcat-${escapeHtml(r.category)}" style="background:${color}22;color:${color}">${escapeHtml(r.category)}</span>
+      <span class="detail-amount" style="color:${r.amount<0?'var(--danger)':'inherit'}">${sign}¥${Math.abs(r.amount).toLocaleString()}</span>
+      <button class="btn-delete" onclick="openEditModal('${escapeHtml(r.id||'')}')">✏️</button>
+    </div>`;
   }).join('');
 }
 
@@ -1184,7 +899,6 @@ function renderDetail(monthRecords) {
 //  家計簿 — 手動編集モーダル
 // ============================================================
 let editingRecordId = null;
-
 function openEditModal(id) {
   const record = kakeiboRecords.find(r => r.id === id);
   if (!record) return;
@@ -1194,11 +908,9 @@ function openEditModal(id) {
   document.getElementById('edit-category').value = record.category;
   document.getElementById('edit-modal').classList.remove('hidden');
 }
-
 document.getElementById('btn-modal-cancel').addEventListener('click', () => {
   document.getElementById('edit-modal').classList.add('hidden');
 });
-
 document.getElementById('btn-modal-save').addEventListener('click', async () => {
   const record = kakeiboRecords.find(r => r.id === editingRecordId);
   if (!record) return;
@@ -1209,7 +921,6 @@ document.getElementById('btn-modal-save').addEventListener('click', async () => 
   document.getElementById('edit-modal').classList.add('hidden');
   renderKakeibo();
 });
-
 document.getElementById('btn-modal-delete').addEventListener('click', async () => {
   if (!confirm('この明細を削除しますか？')) return;
   kakeiboRecords = kakeiboRecords.filter(r => r.id !== editingRecordId);
@@ -1218,34 +929,12 @@ document.getElementById('btn-modal-delete').addEventListener('click', async () =
   renderKakeibo();
 });
 
-// モーダル背景クリックで閉じる
-document.getElementById('edit-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('edit-modal')) {
-    document.getElementById('edit-modal').classList.add('hidden');
-  }
-});
-
 // ============================================================
-//  家計簿 — イベント
+//  家計簿 — CSV取り込み・リセット
 // ============================================================
 document.getElementById('btn-import').addEventListener('click', () => {
   document.getElementById('csv-file-input').click();
 });
-
-document.getElementById('btn-reset').addEventListener('click', async () => {
-  const pw = window.prompt('パスワードを入力してください');
-  if (pw !== 'reset') {
-    if (pw !== null) alert('パスワードが違います');
-    return;
-  }
-  if (!confirm('全データを削除します。この操作は元に戻せません。よろしいですか？')) return;
-  kakeiboRecords = [];
-  await KakeiboStorage.save([]);
-  selectedCategory = null;
-  currentMonthIdx = 0;
-  renderKakeibo();
-});
-
 document.getElementById('csv-file-input').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -1256,42 +945,78 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
       alert('読み込めるデータがありませんでした。\n対応フォーマット: ご利用日,データ処理日,ご利用内容,…');
       return;
     }
-    // 既存データとの重複チェックあり・新規データ内はチェックなし
     const existingKeys = new Set(kakeiboRecords.map(r => `${r.date}|${r.name}|${r.amount}`));
     const added = newRecords.filter(r => !existingKeys.has(`${r.date}|${r.name}|${r.amount}`));
-    kakeiboRecords = [...kakeiboRecords, ...added].sort((a, b) => b.date.localeCompare(a.date));
+    kakeiboRecords = [...kakeiboRecords, ...added].sort((a,b) => b.date.localeCompare(a.date));
     await KakeiboStorage.save(kakeiboRecords);
-    selectedCategory = null;
-    currentMonthIdx = 0;
+    selectedCategory = null; currentMonthIdx = 0;
     renderKakeibo();
-    alert(`${added.length}件を追加しました。（重複 ${newRecords.length - added.length}件を除外）`);
+    alert(`${added.length}件を追加しました。（重複 ${newRecords.length-added.length}件を除外）`);
   };
   reader.readAsArrayBuffer(file);
   e.target.value = '';
 });
-
+document.getElementById('btn-reset').addEventListener('click', async () => {
+  const pw = window.prompt('パスワードを入力してください');
+  if (pw !== 'reset') { if (pw !== null) alert('パスワードが違います'); return; }
+  if (!confirm('全データを削除します。この操作は元に戻せません。よろしいですか？')) return;
+  kakeiboRecords = [];
+  await KakeiboStorage.save([]);
+  selectedCategory = null; currentMonthIdx = 0;
+  renderKakeibo();
+});
 document.getElementById('btn-prev-month').addEventListener('click', () => {
-  if (currentMonthIdx < kakeiboMonths.length - 1) {
-    currentMonthIdx++;
-    selectedCategory = null;
-    renderKakeibo();
-  }
+  if (currentMonthIdx < kakeiboMonths.length-1) { currentMonthIdx++; selectedCategory=null; renderKakeibo(); }
 });
-
 document.getElementById('btn-next-month').addEventListener('click', () => {
-  if (currentMonthIdx > 0) {
-    currentMonthIdx--;
-    selectedCategory = null;
-    renderKakeibo();
-  }
+  if (currentMonthIdx > 0) { currentMonthIdx--; selectedCategory=null; renderKakeibo(); }
 });
 
-// 既存データがあれば初期描画
-KakeiboStorage.load().then(records => {
-  kakeiboRecords = records;
+// ============================================================
+//  ナビゲーション
+// ============================================================
+let currentApp = 'kaji';
+
+document.querySelector('.top-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.top-nav-btn');
+  if (!btn) return;
+  currentApp = btn.dataset.app;
+  document.querySelectorAll('.top-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-kaji').classList.toggle('active', currentApp === 'kaji');
+  document.getElementById('page-kakeibo').classList.toggle('active', currentApp === 'kakeibo');
+  document.getElementById('kaji-sub-nav').style.display = currentApp === 'kaji' ? 'flex' : 'none';
+  // ヘッダー色切り替え
+  document.getElementById('app-header').style.background =
+    currentApp === 'kaji' ? 'var(--kaji-primary)' : 'var(--kakeibo-primary)';
+});
+
+document.getElementById('kaji-sub-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.sub-nav-btn');
+  if (!btn) return;
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('.sub-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.kaji-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+});
+
+// ============================================================
+//  初期化
+// ============================================================
+document.getElementById('today-date') && (document.getElementById('today-date').textContent = '');
+
+(async () => {
+  // 家事管理データ読み込み
+  kajiSchedules   = await KajiStorage.loadSchedules();
+  kajiCompletions = await KajiStorage.loadCompletions();
+  renderKajiAll();
+
+  // 家計簿データ読み込み
+  kakeiboRecords = await KakeiboStorage.load();
   if (kakeiboRecords.length > 0) renderKakeibo();
-});
-</script>
+})();
 
+</script>
 </body>
 </html>
