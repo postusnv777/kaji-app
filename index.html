@@ -1077,7 +1077,10 @@ let currentMonthIdx = 0;
 let selectedCategory = null;
 
 function buildMonthList() {
-  const monthSet = new Set(kakeiboRecords.map(r => r.date.slice(0,7)));
+  const monthSet = new Set(kakeiboRecords.map(r => {
+    const parts = r.date.split('/');
+    return parts[0] + '/' + parts[1];
+  }));
   kakeiboMonths = Array.from(monthSet).sort().reverse();
 }
 
@@ -1188,10 +1191,10 @@ function renderDetail(monthRecords) {
     const sign = r.amount < 0 ? '-' : '';
     const isTransfer = r.category === '振替';
     const transferNote = isTransfer ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px;">（参考）</span>` : '';
-    const sourceTag = r.source ? `<span style="font-size:10px;color:var(--muted);margin-left:4px;">${escapeHtml(r.source)}</span>` : '';
+    const sourceTag = r.source ? `<span style="font-size:10px;color:var(--muted);display:block;">${escapeHtml(r.source)}</span>` : '';
     return `<div class="detail-item" style="${isTransfer?'opacity:0.6;':''}">
-      <span class="detail-date">${r.date.slice(5).replace('/','/') }</span>
-      <span class="detail-name">${escapeHtml(r.name)}${transferNote}${sourceTag}</span>
+      <span class="detail-date">${r.date.slice(5).replace('/','/') }${sourceTag}</span>
+      <span class="detail-name">${escapeHtml(r.name)}${transferNote}</span>
       <span class="detail-cat-tag kcat-${escapeHtml(r.category)}" style="background:${color}22;color:${color}">${escapeHtml(r.category)}</span>
       <span class="detail-amount" style="color:${r.amount<0?'var(--danger)':'inherit'}">${sign}¥${Math.abs(r.amount).toLocaleString()}</span>
       <button class="btn-delete" onclick="openEditModal('${escapeHtml(r.id||'')}')">✏️</button>
