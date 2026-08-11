@@ -512,6 +512,12 @@ async function initApp() {
   // 家計簿データ読み込み
   await loadCustomKeywords();
   kakeiboRecords = await KakeiboStorage.load();
+  // マイグレーション: source未設定の既存データにヒルトンAMEXを付与
+  let migrated = false;
+  for (const r of kakeiboRecords) {
+    if (!r.source && !r.id?.startsWith('rent_')) { r.source = 'ヒルトンAMEX'; migrated = true; }
+  }
+  if (migrated) await KakeiboStorage.save(kakeiboRecords);
   if (kakeiboRecords.length > 0) renderKakeibo();
 }
 
@@ -992,6 +998,18 @@ function parseKakeiboCSV(buffer) {
   const decoder = new TextDecoder('shift-jis');
   const text = decoder.decode(buffer);
   const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  // フォーマット自動判定（ヘッダー行で判別）
+  const header = lines[0];
+  if (header.includes('確定情報')) {
+    return parseMUFJ(lines);
+  } else {
+    return parseAMEX(lines);
+  }
+}
+
+function parseAMEX(lines) {
   const records = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSVLine(lines[i]);
@@ -1005,7 +1023,35 @@ function parseKakeiboCSV(buffer) {
     records.push({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2,5) + i,
       date: dateStr, name, amount,
-      category: amount < 0 ? '振替' : classifyCategory(name)
+      category: amount < 0 ? '振替' : classifyCategory(name),
+      source: 'ヒルトンAMEX'
+    });
+  }
+  return records;
+}
+
+function parseMUFJ(lines) {
+  const records = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCSVLine(lines[i]);
+    // 会員名行をスキップ（cols[0]が空で店名に【が含まれる）
+    if (!cols[0].trim() || (cols[2] && cols[2].includes('【'))) continue;
+    if (cols.length < 7) continue;
+    const rawDate = cols[3].trim(); // ご利用日: 2026年6月17日
+    const name    = cols[2].trim(); // ご利用店名
+    const amtRaw  = cols[6].trim(); // ご利用金額（円）
+    if (!rawDate || !name || !amtRaw) continue;
+    // 日付変換: 2026年6月17日 → 2026/6/17
+    const dateMatch = rawDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+    if (!dateMatch) continue;
+    const dateStr = `${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]}`;
+    const amount = parseInt(amtRaw.replace(/"/g,'').replace(/,/g,'').trim(), 10);
+    if (isNaN(amount) || amount === 0) continue;
+    records.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,5) + i,
+      date: dateStr, name, amount,
+      category: amount < 0 ? '振替' : classifyCategory(name),
+      source: '三菱UFJ'
     });
   }
   return records;
@@ -1142,9 +1188,10 @@ function renderDetail(monthRecords) {
     const sign = r.amount < 0 ? '-' : '';
     const isTransfer = r.category === '振替';
     const transferNote = isTransfer ? `<span style="font-size:11px;color:#9ca3af;margin-left:4px;">（参考）</span>` : '';
+    const sourceTag = r.source ? `<span style="font-size:10px;color:var(--muted);margin-left:4px;">${escapeHtml(r.source)}</span>` : '';
     return `<div class="detail-item" style="${isTransfer?'opacity:0.6;':''}">
       <span class="detail-date">${r.date.slice(5).replace('/','/') }</span>
-      <span class="detail-name">${escapeHtml(r.name)}${transferNote}</span>
+      <span class="detail-name">${escapeHtml(r.name)}${transferNote}${sourceTag}</span>
       <span class="detail-cat-tag kcat-${escapeHtml(r.category)}" style="background:${color}22;color:${color}">${escapeHtml(r.category)}</span>
       <span class="detail-amount" style="color:${r.amount<0?'var(--danger)':'inherit'}">${sign}¥${Math.abs(r.amount).toLocaleString()}</span>
       <button class="btn-delete" onclick="openEditModal('${escapeHtml(r.id||'')}')">✏️</button>
@@ -1199,7 +1246,7 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
   reader.onload = async ev => {
     const newRecords = parseKakeiboCSV(ev.target.result);
     if (newRecords.length === 0) {
-      alert('読み込めるデータがありませんでした。\n対応フォーマット: ご利用日,データ処理日,ご利用内容,…');
+      alert('読み込めるデータがありませんでした。\n対応フォーマット: AMEX / 三菱UFJカード');
       return;
     }
     const existingKeys = new Set(kakeiboRecords.map(r => `${r.date}|${r.name}|${r.amount}`));
