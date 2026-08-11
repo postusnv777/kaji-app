@@ -277,6 +277,16 @@
 
     <!-- 設定タブ -->
     <div id="tab-settings" class="kaji-tab">
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <h4 style="font-size:0.95rem;font-weight:700;color:var(--kaji-primary);">👥 メンバー管理</h4>
+        </div>
+        <div id="member-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="new-member-name" maxlength="10" placeholder="名前を入力" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;" />
+          <button id="btn-add-member" style="padding:8px 16px;background:var(--kaji-primary);color:#fff;border:none;border-radius:8px;font-size:0.85rem;cursor:pointer;white-space:nowrap;">追加</button>
+        </div>
+      </div>
       <button class="btn-add-task" id="btn-add-schedule">＋ タスクを追加</button>
       <div id="schedule-list"></div>
     </div>
@@ -349,6 +359,10 @@
       <label>日付（毎月何日）</label>
       <input type="number" id="sch-monthday" min="1" max="28" placeholder="1〜28" />
     </div>
+    <label>担当者</label>
+    <select id="sch-assignee">
+      <option value="">未設定</option>
+    </select>
     <div class="modal-buttons">
       <button class="btn-md" id="btn-sch-delete" style="display:none">削除</button>
       <button class="btn-mc" id="btn-sch-cancel">キャンセル</button>
@@ -488,6 +502,9 @@ let appInitialized = false;
 async function initApp() {
   if (appInitialized) return;
   appInitialized = true;
+  // メンバー読み込み＆自動登録
+  kajiMembers = await MemberStorage.load();
+  await autoRegisterMember();
   // 家事管理データ読み込み
   kajiSchedules   = await KajiStorage.loadSchedules();
   kajiCompletions = await KajiStorage.loadCompletions();
@@ -503,6 +520,42 @@ async function initApp() {
 // ============================================================
 const KAJI_SCH_DOC  = db.collection('kaji').doc('schedules');
 const KAJI_COMP_DOC = db.collection('kaji').doc('completions');
+const KAJI_MEMBERS_DOC = db.collection('kaji').doc('members');
+
+let kajiMembers = []; // [{name: '太郎'}, ...]
+
+const MemberStorage = {
+  LS_KEY: 'kaji_members_v1',
+  async load() {
+    try {
+      const snap = await KAJI_MEMBERS_DOC.get();
+      if (snap.exists) {
+        const data = snap.data().list || [];
+        localStorage.setItem(this.LS_KEY, JSON.stringify(data));
+        return data;
+      }
+      return JSON.parse(localStorage.getItem(this.LS_KEY)) || [];
+    } catch(e) {
+      return JSON.parse(localStorage.getItem(this.LS_KEY)) || [];
+    }
+  },
+  async save(list) {
+    localStorage.setItem(this.LS_KEY, JSON.stringify(list));
+    try { await KAJI_MEMBERS_DOC.set({ list, updatedAt: new Date() }); } catch(e){}
+  }
+};
+
+async function autoRegisterMember() {
+  const user = auth.currentUser;
+  if (!user || !user.displayName) return;
+  const name = user.displayName;
+  if (!kajiMembers.some(m => m.name === name)) {
+    kajiMembers.push({ name });
+    await MemberStorage.save(kajiMembers);
+    renderMembers();
+    updateAssigneeOptions();
+  }
+}
 
 const KajiStorage = {
   SCH_KEY:  'kaji_schedules_v1',
@@ -582,11 +635,15 @@ function getSchedulesForDate(date) {
     if (s.frequency === 'weekly') return s.weekdays && s.weekdays.includes(wd);
     if (s.frequency === 'monthly') return s.monthDay === day;
     return false;
-  }).map(s => ({
-    ...s,
-    dateStr,
-    done: kajiCompletions.some(c => c.scheduleId === s.id && c.date === dateStr)
-  }));
+  }).map(s => {
+    const completion = kajiCompletions.find(c => c.scheduleId === s.id && c.date === dateStr);
+    return {
+      ...s,
+      dateStr,
+      done: !!completion,
+      completedBy: completion ? (completion.completedBy || '') : ''
+    };
+  });
 }
 
 async function toggleCompletion(scheduleId, dateStr) {
@@ -594,7 +651,9 @@ async function toggleCompletion(scheduleId, dateStr) {
   if (idx >= 0) {
     kajiCompletions.splice(idx, 1);
   } else {
-    kajiCompletions.push({ id: genId(), scheduleId, date: dateStr });
+    const user = auth.currentUser;
+    const completedBy = user ? (user.displayName || user.email) : '';
+    kajiCompletions.push({ id: genId(), scheduleId, date: dateStr, completedBy });
   }
   await KajiStorage.saveCompletions(kajiCompletions);
 }
@@ -621,17 +680,21 @@ function renderToday() {
   const done = tasks.filter(t => t.done);
   const checkSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
 
-  const renderItem = t => `
+  const renderItem = t => {
+    const assigneeTag = t.assignee ? `<span style="font-size:0.7rem;color:var(--kaji-primary);margin-left:4px;">👤${escapeHtml(t.assignee)}</span>` : '';
+    const completedByTag = t.done && t.completedBy ? `<span style="font-size:0.7rem;color:var(--success);margin-left:4px;">✓${escapeHtml(t.completedBy)}</span>` : '';
+    return `
     <div class="task-item ${t.done ? 'done' : ''}" id="task-${t.id}">
       <div class="task-check" onclick="onToggleToday('${t.id}','${t.dateStr}')">
         ${checkSvg}
       </div>
       <div class="task-body">
         <div class="task-name">${escapeHtml(t.name)}</div>
-        <div class="task-sub">${t.frequency === 'weekly' ? t.weekdays.map(w=>WEEKDAY_NAMES[w]).join('・')+'曜' : `毎月${t.monthDay}日`}</div>
+        <div class="task-sub">${t.frequency === 'weekly' ? t.weekdays.map(w=>WEEKDAY_NAMES[w]).join('・')+'曜' : `毎月${t.monthDay}日`}${assigneeTag}${completedByTag}</div>
       </div>
       <span class="cat-tag cat-${escapeHtml(t.category)}">${escapeHtml(t.category)}</span>
     </div>`;
+  };
 
   document.getElementById('today-list').innerHTML =
     [...todo, ...done].map(renderItem).join('');
@@ -648,14 +711,18 @@ function renderWeek() {
     const isToday = dateStr === todayDateStr;
     const label = `${date.getMonth()+1}/${date.getDate()}（${WEEKDAY_NAMES[date.getDay()]}）`;
     if (tasks.length === 0) return '';
-    const rows = tasks.map(t => `
+    const rows = tasks.map(t => {
+      const assigneeStr = t.assignee ? `<span style="font-size:0.65rem;color:var(--kaji-primary);margin-left:4px;">👤${escapeHtml(t.assignee)}</span>` : '';
+      const doneByStr = t.done && t.completedBy ? `<span style="font-size:0.65rem;color:var(--success);margin-left:4px;">✓${escapeHtml(t.completedBy)}</span>` : '';
+      return `
       <div class="week-task-row ${t.done ? 'done' : ''}" id="wtask-${t.id}-${dateStr}">
         <div class="week-check" onclick="onToggleWeek('${t.id}','${dateStr}')">
           ${checkSvg}
         </div>
-        <span class="week-task-name">${escapeHtml(t.name)}</span>
+        <span class="week-task-name">${escapeHtml(t.name)}${assigneeStr}${doneByStr}</span>
         <span class="cat-tag cat-${escapeHtml(t.category)}" style="font-size:0.65rem">${escapeHtml(t.category)}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return `<div class="week-day-section">
       <div class="week-day-label ${isToday ? 'today' : ''}">${label}</div>
       ${rows}
@@ -678,11 +745,12 @@ function renderSettings() {
     const detail = s.frequency === 'weekly'
       ? (s.weekdays||[]).map(w=>WEEKDAY_NAMES[w]).join('・') + '曜'
       : `毎月${s.monthDay}日`;
+    const assigneeStr = s.assignee ? ` | 👤${escapeHtml(s.assignee)}` : '';
     return `
       <div class="schedule-item">
         <div class="schedule-info">
           <div class="schedule-name">${escapeHtml(s.name)}</div>
-          <div class="schedule-detail"><span class="cat-tag cat-${escapeHtml(s.category)}">${escapeHtml(s.category)}</span> ${detail}</div>
+          <div class="schedule-detail"><span class="cat-tag cat-${escapeHtml(s.category)}">${escapeHtml(s.category)}</span> ${detail}${assigneeStr}</div>
         </div>
         <button class="btn-edit-sch" onclick="openScheduleModal('${s.id}')">編集</button>
       </div>`;
@@ -690,10 +758,57 @@ function renderSettings() {
 }
 
 function renderKajiAll() {
+  renderMembers();
   renderToday();
   renderWeek();
   renderSettings();
 }
+
+// ============================================================
+//  家事管理 — メンバー管理
+// ============================================================
+function renderMembers() {
+  const el = document.getElementById('member-list');
+  if (!el) return;
+  if (kajiMembers.length === 0) {
+    el.innerHTML = '<span style="font-size:0.8rem;color:var(--muted);">メンバーなし（ログインで自動登録されます）</span>';
+    return;
+  }
+  el.innerHTML = kajiMembers.map(m => `
+    <span style="display:inline-flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:0.82rem;">
+      ${escapeHtml(m.name)}
+      <button onclick="removeMember('${escapeHtml(m.name)}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem;line-height:1;padding:0 2px;">×</button>
+    </span>`).join('');
+}
+
+function updateAssigneeOptions() {
+  const select = document.getElementById('sch-assignee');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = '<option value="">未設定</option>' +
+    kajiMembers.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('');
+  select.value = current;
+}
+
+async function removeMember(name) {
+  if (!confirm(`「${name}」をメンバーから削除しますか？`)) return;
+  kajiMembers = kajiMembers.filter(m => m.name !== name);
+  await MemberStorage.save(kajiMembers);
+  renderMembers();
+  updateAssigneeOptions();
+}
+
+document.getElementById('btn-add-member').addEventListener('click', async () => {
+  const input = document.getElementById('new-member-name');
+  const name = input.value.trim();
+  if (!name) return;
+  if (kajiMembers.some(m => m.name === name)) { alert('既に登録されています'); return; }
+  kajiMembers.push({ name });
+  await MemberStorage.save(kajiMembers);
+  input.value = '';
+  renderMembers();
+  updateAssigneeOptions();
+});
 
 // ============================================================
 //  家事管理 — スケジュールモーダル
@@ -707,6 +822,10 @@ function openScheduleModal(id) {
   document.getElementById('sch-frequency').value = sch ? sch.frequency : 'weekly';
   document.getElementById('sch-monthday').value = sch ? (sch.monthDay||1) : 1;
   document.getElementById('btn-sch-delete').style.display = sch ? 'block' : 'none';
+
+  // 担当者セレクト更新
+  updateAssigneeOptions();
+  document.getElementById('sch-assignee').value = sch ? (sch.assignee || '') : '';
 
   // 曜日ボタン初期化
   document.querySelectorAll('.wd-btn').forEach(btn => {
@@ -743,12 +862,13 @@ document.getElementById('btn-sch-save').addEventListener('click', async () => {
     : [];
   if (freq === 'weekly' && weekdays.length === 0) { alert('曜日を1つ以上選択してください'); return; }
   const monthDay = freq === 'monthly' ? parseInt(document.getElementById('sch-monthday').value)||1 : null;
+  const assignee = document.getElementById('sch-assignee').value;
 
   if (editingScheduleId) {
     const sch = kajiSchedules.find(s => s.id === editingScheduleId);
-    if (sch) { sch.name = name; sch.category = document.getElementById('sch-category').value; sch.frequency = freq; sch.weekdays = weekdays; sch.monthDay = monthDay; }
+    if (sch) { sch.name = name; sch.category = document.getElementById('sch-category').value; sch.frequency = freq; sch.weekdays = weekdays; sch.monthDay = monthDay; sch.assignee = assignee; }
   } else {
-    kajiSchedules.push({ id: genId(), name, category: document.getElementById('sch-category').value, frequency: freq, weekdays, monthDay });
+    kajiSchedules.push({ id: genId(), name, category: document.getElementById('sch-category').value, frequency: freq, weekdays, monthDay, assignee });
   }
   await KajiStorage.saveSchedules(kajiSchedules);
   document.getElementById('schedule-modal').classList.add('hidden');
@@ -784,13 +904,13 @@ const KAKEIBO_CATEGORIES = [
   { name: '振替',           color: '#9ca3af', keywords: ['口座振替', '前回分'] },
   { name: '外食',           color: '#f97316', keywords: ['セブン','ファミマ','ローソン','ミニストップ','デイリーヤマザキ','マクドナルド','すき家','吉野家','モスバーガー','ケンタッキー','サブウェイ','ほっともっと','松屋','ねぎし','バーミヤン','にくの助','デニーズ','ガスト','サイゼリヤ','レストラン','izakaya','居酒屋','しゃぶ','やきにく','焼肉','寿司','すし','ラーメン'] },
   { name: '娯楽',           color: '#3b82f6', keywords: ['シネマ','映画','ゲーム','アミューズ','カラオケ','ボウリング','イオンシネマ'] },
-  { name: '車',             color: '#64748b', keywords: ['駐車場','パーキング','ENEOS','Ｅｎｅｏｓ','エネオス','ガソリン','洗車','オートバックス','イエローハット'] },
+  { name: '車',             color: '#78350f', keywords: ['駐車場','パーキング','ENEOS','Ｅｎｅｏｓ','エネオス','ガソリン','洗車','オートバックス','イエローハット'] },
   { name: 'スーパー',       color: '#22c55e', keywords: ['まいばすけっと','オーケー','イオン','西友','ライフ','マルエツ','ヨークマート','ピアゴ','コープ','高島屋','島屋','ルミネ'] },
-  { name: '病院',           color: '#f43f5e', keywords: ['クリニック','病院','薬局','ドラッグ','マツキヨ','ウエルシア','ツルハ','調剤','ＡＲＴ','医院','歯科'] },
+  { name: '病院',           color: '#e11d48', keywords: ['クリニック','病院','薬局','ドラッグ','マツキヨ','ウエルシア','ツルハ','調剤','ＡＲＴ','医院','歯科'] },
   { name: '水道代',         color: '#0ea5e9', keywords: ['水道','上下水道'] },
   { name: '電気代',         color: '#eab308', keywords: ['電力','東京電力','関西電力','中部電力','電気'] },
-  { name: 'ガス代',         color: '#ef4444', keywords: ['東京ガス','大阪ガス','ガス'] },
-  { name: '積立',           color: '#10b981', keywords: ['ベネフィット','保険','積立','年金','定期'] },
+  { name: 'ガス代',         color: '#dc2626', keywords: ['東京ガス','大阪ガス','ガス'] },
+  { name: '積立',           color: '#14532d', keywords: ['ベネフィット','保険','積立','年金','定期'] },
   { name: 'インターネット代',color: '#8b5cf6', keywords: ['ドコモ','au','ソフトバンク','ＳＯＦＴＢＡＮＫ','楽天モバイル','ＮＴＴ','フレッツ','ビッグローブ','インターネット','Ｗｉ－Ｆｉ'] },
   { name: '家賃',           color: '#ec4899', keywords: [] },
 ];
@@ -806,7 +926,7 @@ function classifyCategory(name) {
 }
 function categoryColor(name) {
   const cat = KAKEIBO_CATEGORIES.find(c => c.name === name);
-  return cat ? cat.color : '#6b7280';
+  return cat ? cat.color : '#0d9488';
 }
 
 // カスタムキーワード（ユーザーが手動追加分）
