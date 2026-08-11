@@ -533,13 +533,14 @@ async function initApp() {
       }
     }
   }
-  // 重複家賃を除去（同じIDが複数ある場合）
-  const rentIds = new Set();
+  // 重複家賃を除去（同じ月に家賃カテゴリが複数あれば1つだけ残す）
+  const rentMonths = new Set();
   const beforeLen = kakeiboRecords.length;
   kakeiboRecords = kakeiboRecords.filter(r => {
-    if (r.id && r.id.startsWith('rent_')) {
-      if (rentIds.has(r.id)) return false;
-      rentIds.add(r.id);
+    if (r.category === '家賃') {
+      const m = normalizeDate(r.date).slice(0, 7);
+      if (rentMonths.has(m)) return false;
+      rentMonths.add(m);
     }
     return true;
   });
