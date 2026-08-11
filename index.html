@@ -419,6 +419,12 @@ function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+// 日付を YYYY/MM/DD に正規化（2026/6/4 → 2026/06/04）
+function normalizeDate(dateStr) {
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return dateStr;
+  return parts[0] + '/' + parts[1].padStart(2,'0') + '/' + parts[2].padStart(2,'0');
+}
 function escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
                   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -512,10 +518,12 @@ async function initApp() {
   // 家計簿データ読み込み
   await loadCustomKeywords();
   kakeiboRecords = await KakeiboStorage.load();
-  // マイグレーション: source未設定の既存データにヒルトンAMEXを付与
+  // マイグレーション: source未設定にヒルトンAMEX付与 & 日付をYYYY/MM/DDに正規化
   let migrated = false;
   for (const r of kakeiboRecords) {
     if (!r.source && !r.id?.startsWith('rent_')) { r.source = 'ヒルトンAMEX'; migrated = true; }
+    const nd = normalizeDate(r.date);
+    if (nd !== r.date) { r.date = nd; migrated = true; }
   }
   if (migrated) await KakeiboStorage.save(kakeiboRecords);
   if (kakeiboRecords.length > 0) renderKakeibo();
@@ -1014,7 +1022,7 @@ function parseAMEX(lines) {
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSVLine(lines[i]);
     if (cols.length < 6) continue;
-    const dateStr = cols[0].trim();
+    const dateStr = normalizeDate(cols[0].trim());
     const name    = cols[2].trim();
     const amtRaw  = cols[5].trim();
     if (!dateStr || !name || !amtRaw) continue;
@@ -1044,7 +1052,7 @@ function parseMUFJ(lines) {
     // 日付変換: 2026年6月17日 → 2026/6/17
     const dateMatch = rawDate.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
     if (!dateMatch) continue;
-    const dateStr = `${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]}`;
+    const dateStr = `${dateMatch[1]}/${dateMatch[2].padStart(2,'0')}/${dateMatch[3].padStart(2,'0')}`;
     const amount = parseInt(amtRaw.replace(/"/g,'').replace(/,/g,'').trim(), 10);
     if (isNaN(amount) || amount === 0) continue;
     records.push({
@@ -1077,10 +1085,7 @@ let currentMonthIdx = 0;
 let selectedCategory = null;
 
 function buildMonthList() {
-  const monthSet = new Set(kakeiboRecords.map(r => {
-    const parts = r.date.split('/');
-    return parts[0] + '/' + parts[1];
-  }));
+  const monthSet = new Set(kakeiboRecords.map(r => r.date.slice(0,7)));
   kakeiboMonths = Array.from(monthSet).sort().reverse();
 }
 
