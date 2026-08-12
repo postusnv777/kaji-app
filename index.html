@@ -224,7 +224,21 @@
     .card-filter-btn.active {
       background: var(--kakeibo-primary); color: #fff; border-color: var(--kakeibo-primary);
     }
-    .kakeibo-trend { margin-bottom: 16px; }
+    .kakeibo-sub-nav {
+      display: flex; justify-content: center; gap: 0; margin-bottom: 16px;
+      background: var(--card); border-radius: 10px; padding: 4px;
+      box-shadow: var(--shadow);
+    }
+    .kakeibo-sub-btn {
+      flex: 1; padding: 9px 12px; border: none; border-radius: 8px;
+      background: transparent; color: var(--muted); font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .kakeibo-sub-btn.active {
+      background: var(--kakeibo-primary); color: #fff;
+    }
+    .kakeibo-tab { display: none; }
+    .kakeibo-tab.active { display: block; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -303,36 +317,60 @@
       <button id="btn-classify-settings" style="display:inline-block;margin-top:8px;margin-left:8px;padding:7px 18px;background:transparent;color:var(--kakeibo-primary);border:1px solid var(--kakeibo-primary);border-radius:8px;font-size:0.85rem;cursor:pointer;">⚙️ 分類設定</button>
       <button id="btn-reclassify" style="display:inline-block;margin-top:8px;margin-left:8px;padding:7px 18px;background:transparent;color:var(--kakeibo-primary);border:1px solid var(--kakeibo-primary);border-radius:8px;font-size:0.85rem;cursor:pointer;">🔄 再分類</button>
     </div>
-    <div class="kakeibo-month-selector" id="month-selector" style="display:none">
-      <button class="month-nav-btn" id="btn-prev-month">‹</button>
-      <span id="current-month-label"></span>
-      <button class="month-nav-btn" id="btn-next-month">›</button>
+
+    <!-- 家計簿サブナビ -->
+    <div class="kakeibo-sub-nav" id="kakeibo-sub-nav" style="display:none">
+      <button class="kakeibo-sub-btn active" data-ktab="monthly">月別</button>
+      <button class="kakeibo-sub-btn" data-ktab="summary">まとめ</button>
     </div>
-    <div class="card-filter" id="card-filter" style="display:none">
-      <button class="card-filter-btn active" data-source="all">全カード</button>
-      <button class="card-filter-btn" data-source="ヒルトンAMEX">AMEX</button>
-      <button class="card-filter-btn" data-source="三菱UFJ">UFJ</button>
-      <button class="card-filter-btn" data-source="口座">口座</button>
-    </div>
-    <div class="kakeibo-summary" id="kakeibo-summary" style="display:none">
-      <h2>カテゴリ別集計（タップで明細表示）</h2>
-      <div class="summary-total" id="summary-total"></div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin:12px auto;max-width:400px;">
-        <div style="position:relative;width:220px;height:220px;">
-          <canvas id="pie-chart"></canvas>
-        </div>
-        <div id="pie-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;"></div>
+
+    <!-- 月別タブ -->
+    <div id="ktab-monthly" class="kakeibo-tab active">
+      <div class="kakeibo-month-selector" id="month-selector" style="display:none">
+        <button class="month-nav-btn" id="btn-prev-month">‹</button>
+        <span id="current-month-label"></span>
+        <button class="month-nav-btn" id="btn-next-month">›</button>
       </div>
-      <div class="summary-rows" id="summary-rows"></div>
+      <div class="card-filter" id="card-filter" style="display:none">
+        <button class="card-filter-btn active" data-source="all">全カード</button>
+        <button class="card-filter-btn" data-source="ヒルトンAMEX">AMEX</button>
+        <button class="card-filter-btn" data-source="三菱UFJ">UFJ</button>
+        <button class="card-filter-btn" data-source="口座">口座</button>
+      </div>
+      <div class="kakeibo-summary" id="kakeibo-summary" style="display:none">
+        <h2>カテゴリ別集計（タップで明細表示）</h2>
+        <div class="summary-total" id="summary-total"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin:12px auto;max-width:400px;">
+          <div style="position:relative;width:220px;height:220px;">
+            <canvas id="pie-chart"></canvas>
+          </div>
+          <div id="pie-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;"></div>
+        </div>
+        <div class="summary-rows" id="summary-rows"></div>
+      </div>
+      <div class="kakeibo-detail" id="kakeibo-detail" style="display:none">
+        <h2 id="detail-title">明細</h2>
+        <div id="detail-list"></div>
+      </div>
     </div>
-    <div class="kakeibo-detail" id="kakeibo-detail" style="display:none">
-      <h2 id="detail-title">明細</h2>
-      <div id="detail-list"></div>
+
+    <!-- まとめタブ -->
+    <div id="ktab-summary" class="kakeibo-tab">
+      <div class="card" id="summary-trend-card">
+        <h2 style="font-size:0.9rem;color:var(--muted);margin-bottom:12px;">📈 月別支出推移</h2>
+        <canvas id="trend-chart" height="180"></canvas>
+      </div>
+      <div class="card" id="summary-category-card">
+        <h2 style="font-size:0.9rem;color:var(--muted);margin-bottom:12px;">📊 カテゴリ別月推移</h2>
+        <canvas id="category-trend-chart" height="220"></canvas>
+      </div>
+      <div class="card" id="summary-source-card">
+        <h2 style="font-size:0.9rem;color:var(--muted);margin-bottom:12px;">💳 カード別比率</h2>
+        <canvas id="source-pie-chart" height="200"></canvas>
+        <div id="source-pie-legend" style="display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;margin-top:10px;"></div>
+      </div>
     </div>
-    <div class="kakeibo-trend card" id="kakeibo-trend" style="display:none">
-      <h2 style="font-size:0.9rem;color:var(--muted);margin-bottom:12px;">📈 月別推移</h2>
-      <canvas id="trend-chart" height="180"></canvas>
-    </div>
+
     <div class="no-data" id="kakeibo-empty">CSVを読み込むと集計が表示されます</div>
   </div>
 </main>
@@ -1113,10 +1151,10 @@ function filterBySource(records) {
 async function renderKakeibo() {
   const hasData = kakeiboRecords.length > 0;
   document.getElementById('kakeibo-empty').style.display  = hasData ? 'none'  : 'block';
+  document.getElementById('kakeibo-sub-nav').style.display = hasData ? 'flex'  : 'none';
   document.getElementById('month-selector').style.display = hasData ? 'flex'  : 'none';
   document.getElementById('card-filter').style.display    = hasData ? 'flex'  : 'none';
   document.getElementById('kakeibo-summary').style.display= hasData ? 'block' : 'none';
-  document.getElementById('kakeibo-trend').style.display  = hasData ? 'block' : 'none';
   if (!hasData) { document.getElementById('kakeibo-detail').style.display = 'none'; return; }
 
   buildMonthList();
@@ -1162,7 +1200,6 @@ async function renderKakeibo() {
   }).join('');
 
   renderDetail(monthRecords);
-  renderTrendChart();
 }
 
 let pieChartInstance = null;
@@ -1278,26 +1315,44 @@ document.getElementById('card-filter').addEventListener('click', e => {
   renderKakeibo();
 });
 
+// 家計簿サブタブ切り替え
+document.getElementById('kakeibo-sub-nav').addEventListener('click', e => {
+  const btn = e.target.closest('.kakeibo-sub-btn');
+  if (!btn) return;
+  document.querySelectorAll('.kakeibo-sub-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.kakeibo-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`ktab-${btn.dataset.ktab}`).classList.add('active');
+  if (btn.dataset.ktab === 'summary') renderSummaryTab();
+});
+
 // ============================================================
-//  家計簿 — 月別推移グラフ
+//  家計簿 — まとめタブ
 // ============================================================
 let trendChartInstance = null;
+let categoryTrendInstance = null;
+let sourcePieInstance = null;
+
+function renderSummaryTab() {
+  if (kakeiboRecords.length === 0) return;
+  buildMonthList();
+  renderTrendChart();
+  renderCategoryTrend();
+  renderSourcePie();
+}
+
 function renderTrendChart() {
-  // 直近6ヶ月分のデータを取得（カードフィルタ適用）
-  const months = kakeiboMonths.slice(0, 6).reverse(); // 古い順に
-  if (months.length < 2) {
-    document.getElementById('kakeibo-trend').style.display = 'none';
-    return;
-  }
+  const months = kakeiboMonths.slice().reverse(); // 全期間、古い順
+  if (months.length < 2) return;
 
   const totals = months.map(m => {
-    const filtered = filterBySource(
-      kakeiboRecords.filter(r => normalizeDate(r.date).startsWith(m) && r.category !== '振替')
+    const filtered = kakeiboRecords.filter(r =>
+      normalizeDate(r.date).startsWith(m) && r.category !== '振替'
     );
     return filtered.reduce((sum, r) => sum + r.amount, 0);
   });
 
-  const labels = months.map(m => parseInt(m.slice(5)) + '月'); // "7月"
+  const labels = months.map(m => parseInt(m.slice(5)) + '月');
   const canvas = document.getElementById('trend-chart');
   if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
   trendChartInstance = new Chart(canvas, {
@@ -1320,11 +1375,7 @@ function renderTrendChart() {
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `¥${ctx.raw.toLocaleString()}`
-          }
-        }
+        tooltip: { callbacks: { label: ctx => `¥${ctx.raw.toLocaleString()}` } }
       },
       scales: {
         y: {
@@ -1335,14 +1386,109 @@ function renderTrendChart() {
           },
           grid: { color: '#e5e7eb' }
         },
-        x: {
-          ticks: { font: { size: 11 } },
-          grid: { display: false }
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+      },
+      animation: { duration: 400 }
+    }
+  });
+}
+
+function renderCategoryTrend() {
+  const months = kakeiboMonths.slice().reverse();
+  if (months.length < 2) return;
+
+  // 主要カテゴリ（振替除外、上位6カテゴリ）
+  const catTotals = {};
+  for (const r of kakeiboRecords) {
+    if (r.category === '振替') continue;
+    catTotals[r.category] = (catTotals[r.category] || 0) + r.amount;
+  }
+  const topCats = Object.entries(catTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([cat]) => cat);
+
+  const datasets = topCats.map(cat => ({
+    label: cat,
+    data: months.map(m => {
+      return kakeiboRecords
+        .filter(r => normalizeDate(r.date).startsWith(m) && r.category === cat)
+        .reduce((s, r) => s + r.amount, 0);
+    }),
+    backgroundColor: categoryColor(cat) + 'cc',
+    borderColor: categoryColor(cat),
+    borderWidth: 1
+  }));
+
+  const labels = months.map(m => parseInt(m.slice(5)) + '月');
+  const canvas = document.getElementById('category-trend-chart');
+  if (categoryTrendInstance) { categoryTrendInstance.destroy(); categoryTrendInstance = null; }
+  categoryTrendInstance = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ¥${ctx.raw.toLocaleString()}` } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } },
+        y: {
+          stacked: true, beginAtZero: true,
+          ticks: {
+            callback: v => '¥' + (v >= 10000 ? Math.round(v/10000) + '万' : v.toLocaleString()),
+            font: { size: 11 }
+          },
+          grid: { color: '#e5e7eb' }
         }
       },
       animation: { duration: 400 }
     }
   });
+}
+
+function renderSourcePie() {
+  // カード別の合計（振替除外）
+  const sourceMap = {};
+  for (const r of kakeiboRecords) {
+    if (r.category === '振替') continue;
+    const src = r.source || '不明';
+    sourceMap[src] = (sourceMap[src] || 0) + r.amount;
+  }
+  const entries = Object.entries(sourceMap).filter(([,v]) => v > 0).sort((a,b) => b[1] - a[1]);
+  if (entries.length === 0) return;
+
+  const total = entries.reduce((s,[,v]) => s + v, 0);
+  const labels = entries.map(([src]) => src);
+  const data = entries.map(([,amt]) => amt);
+  const sourceColors = { 'ヒルトンAMEX': '#1e40af', '三菱UFJ': '#dc2626', '口座': '#16a34a' };
+  const colors = entries.map(([src]) => sourceColors[src] || '#6b7280');
+
+  const canvas = document.getElementById('source-pie-chart');
+  if (sourcePieInstance) { sourcePieInstance.destroy(); sourcePieInstance = null; }
+  sourcePieInstance = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] },
+    options: {
+      responsive: true, cutout: '55%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => { const pct = Math.round((ctx.raw/total)*100); return ` ${ctx.label}  ¥${ctx.raw.toLocaleString()} (${pct}%)`; } } }
+      },
+      animation: { duration: 400 }
+    }
+  });
+
+  // 凡例
+  const legendEl = document.getElementById('source-pie-legend');
+  legendEl.innerHTML = entries.map(([src, amt], i) => {
+    const pct = Math.round((amt / total) * 100);
+    return `<div style="display:flex;align-items:center;gap:5px;">
+      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colors[i]};flex-shrink:0;"></span>
+      <span>${src} <strong>${pct}%</strong></span>
+    </div>`;
+  }).join('');
 }
 
 // ============================================================
