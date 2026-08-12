@@ -164,11 +164,6 @@
     }
     .btn-import:active { transform: scale(0.97); }
     #csv-file-input { display: none; }
-    .btn-reset {
-      display: inline-block; margin-top: 8px; padding: 7px 18px;
-      background: transparent; color: var(--danger); border: 1px solid var(--danger);
-      border-radius: 8px; font-size: 0.85rem; cursor: pointer;
-    }
     .kakeibo-month-selector {
       display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px;
     }
@@ -202,11 +197,7 @@
     .detail-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 80px; }
     .detail-amount { font-weight: 600; min-width: 70px; text-align: right; white-space: nowrap; }
     .detail-cat-tag { font-size: 0.68rem; padding: 2px 6px; border-radius: 999px; font-weight: 600; flex-shrink: 0; }
-    .btn-delete {
-      background: none; border: none; color: var(--muted); cursor: pointer;
-      padding: 4px; border-radius: 6px; flex-shrink: 0;
-    }
-    .btn-delete:hover { color: var(--danger); }
+
     .kcat-外食        { background:#ffedd5; color:#9a3412; }
     .kcat-娯楽        { background:#dbeafe; color:#1e40af; }
     .kcat-車          { background:#f1f5f9; color:#475569; }
@@ -220,9 +211,20 @@
     .kcat-家賃        { background:#fce7f3; color:#9d174d; }
     .kcat-振替        { background:#f3f4f6; color:#374151; }
     .kcat-その他      { background:#f3f4f6; color:#374151; }
-    .modal-kakeibo input:focus, .modal-kakeibo select:focus { border-color: var(--kakeibo-primary); }
-    .btn-ms-kakeibo { flex:1; padding:10px; background:var(--kakeibo-primary); color:#fff; border:none; border-radius:8px; font-size:0.95rem; font-weight:600; cursor:pointer; }
+
     .no-data { text-align:center; padding:32px 20px; color:var(--muted); font-size:0.9rem; }
+    .card-filter {
+      display: flex; justify-content: center; gap: 8px; margin-bottom: 16px;
+    }
+    .card-filter-btn {
+      padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+      background: var(--card); color: var(--muted); font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .card-filter-btn.active {
+      background: var(--kakeibo-primary); color: #fff; border-color: var(--kakeibo-primary);
+    }
+    .kakeibo-trend { margin-bottom: 16px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -298,7 +300,6 @@
       <button class="btn-import" id="btn-import">📂 CSVを読み込む</button>
       <input type="file" id="csv-file-input" accept=".csv,text/csv,text/plain,application/octet-stream" />
       <br>
-      <button class="btn-reset" id="btn-reset">🗑️ 全データをリセット</button>
       <button id="btn-classify-settings" style="display:inline-block;margin-top:8px;margin-left:8px;padding:7px 18px;background:transparent;color:var(--kakeibo-primary);border:1px solid var(--kakeibo-primary);border-radius:8px;font-size:0.85rem;cursor:pointer;">⚙️ 分類設定</button>
       <button id="btn-reclassify" style="display:inline-block;margin-top:8px;margin-left:8px;padding:7px 18px;background:transparent;color:var(--kakeibo-primary);border:1px solid var(--kakeibo-primary);border-radius:8px;font-size:0.85rem;cursor:pointer;">🔄 再分類</button>
     </div>
@@ -306,6 +307,12 @@
       <button class="month-nav-btn" id="btn-prev-month">‹</button>
       <span id="current-month-label"></span>
       <button class="month-nav-btn" id="btn-next-month">›</button>
+    </div>
+    <div class="card-filter" id="card-filter" style="display:none">
+      <button class="card-filter-btn active" data-source="all">全カード</button>
+      <button class="card-filter-btn" data-source="ヒルトンAMEX">AMEX</button>
+      <button class="card-filter-btn" data-source="三菱UFJ">UFJ</button>
+      <button class="card-filter-btn" data-source="口座">口座</button>
     </div>
     <div class="kakeibo-summary" id="kakeibo-summary" style="display:none">
       <h2>カテゴリ別集計（タップで明細表示）</h2>
@@ -321,6 +328,10 @@
     <div class="kakeibo-detail" id="kakeibo-detail" style="display:none">
       <h2 id="detail-title">明細</h2>
       <div id="detail-list"></div>
+    </div>
+    <div class="kakeibo-trend card" id="kakeibo-trend" style="display:none">
+      <h2 style="font-size:0.9rem;color:var(--muted);margin-bottom:12px;">📈 月別推移</h2>
+      <canvas id="trend-chart" height="180"></canvas>
     </div>
     <div class="no-data" id="kakeibo-empty">CSVを読み込むと集計が表示されます</div>
   </div>
@@ -370,29 +381,7 @@
   </div>
 </div>
 
-<!-- 家計簿明細編集モーダル -->
-<div class="modal-overlay hidden modal-kakeibo" id="edit-modal">
-  <div class="modal-box">
-    <h3>明細を編集</h3>
-    <label>店名・内容</label>
-    <input type="text" id="edit-name" maxlength="50" />
-    <label>金額</label>
-    <input type="number" id="edit-amount" />
-    <label>カテゴリ</label>
-    <select id="edit-category">
-      <option>外食</option><option>娯楽</option><option>車</option>
-      <option>スーパー</option><option>病院</option>
-      <option>水道代</option><option>電気代</option><option>ガス代</option>
-      <option>積立</option><option>インターネット代</option><option>家賃</option>
-      <option>振替</option><option>その他</option>
-    </select>
-    <div class="modal-buttons">
-      <button class="btn-md" id="btn-modal-delete">削除</button>
-      <button class="btn-mc" id="btn-modal-cancel">キャンセル</button>
-      <button class="btn-ms-kakeibo" id="btn-modal-save">保存</button>
-    </div>
-  </div>
-</div>
+
 
 </div><!-- /app-main -->
 
@@ -517,10 +506,11 @@ async function initApp() {
   // 家計簿データ読み込み
   await loadCustomKeywords();
   kakeiboRecords = await KakeiboStorage.load();
-  // マイグレーション: source未設定にヒルトンAMEX付与 & 日付をYYYY/MM/DDに正規化 & 家賃ID修正
+  // マイグレーション: source未設定にヒルトンAMEX/口座付与 & 日付をYYYY/MM/DDに正規化 & 家賃ID修正
   let migrated = false;
   for (const r of kakeiboRecords) {
     if (!r.source && !r.id?.startsWith('rent_')) { r.source = 'ヒルトンAMEX'; migrated = true; }
+    if (!r.source && r.id?.startsWith('rent_')) { r.source = '口座'; migrated = true; }
     const nd = normalizeDate(r.date);
     if (nd !== r.date) { r.date = nd; migrated = true; }
     // 家賃IDを正規化 (rent_2026/6 → rent_2026/06)
@@ -1102,6 +1092,7 @@ let kakeiboRecords = [];
 let kakeiboMonths  = [];
 let currentMonthIdx = 0;
 let selectedCategory = null;
+let selectedSource = 'all'; // 'all' | 'ヒルトンAMEX' | '三菱UFJ' | '口座'
 
 function buildMonthList() {
   const monthSet = new Set(kakeiboRecords.map(r => {
@@ -1111,6 +1102,11 @@ function buildMonthList() {
   kakeiboMonths = Array.from(monthSet).sort().reverse();
 }
 
+function filterBySource(records) {
+  if (selectedSource === 'all') return records;
+  return records.filter(r => r.source === selectedSource);
+}
+
 // ============================================================
 //  家計簿 — 描画
 // ============================================================
@@ -1118,7 +1114,9 @@ async function renderKakeibo() {
   const hasData = kakeiboRecords.length > 0;
   document.getElementById('kakeibo-empty').style.display  = hasData ? 'none'  : 'block';
   document.getElementById('month-selector').style.display = hasData ? 'flex'  : 'none';
+  document.getElementById('card-filter').style.display    = hasData ? 'flex'  : 'none';
   document.getElementById('kakeibo-summary').style.display= hasData ? 'block' : 'none';
+  document.getElementById('kakeibo-trend').style.display  = hasData ? 'block' : 'none';
   if (!hasData) { document.getElementById('kakeibo-detail').style.display = 'none'; return; }
 
   buildMonthList();
@@ -1128,12 +1126,16 @@ async function renderKakeibo() {
 
   const hasRent = kakeiboRecords.some(r => r.category === '家賃' && normalizeDate(r.date).startsWith(month));
   if (!hasRent) {
-    kakeiboRecords.push({ id:`rent_${month}`, date:`${month}/01`, name:'家賃', amount:100000, category:'家賃' });
+    kakeiboRecords.push({ id:`rent_${month}`, date:`${month}/01`, name:'家賃', amount:100000, category:'家賃', source:'口座' });
     kakeiboRecords.sort((a,b) => b.date.localeCompare(a.date));
     await KakeiboStorage.save(kakeiboRecords);
   }
 
-  const monthRecords = kakeiboRecords.filter(r => normalizeDate(r.date).startsWith(month));
+  // カードフィルタ適用
+  const monthRecords = filterBySource(
+    kakeiboRecords.filter(r => normalizeDate(r.date).startsWith(month))
+  );
+
   const catMap = {}; let totalAmt = 0;
   for (const r of monthRecords) {
     if (r.category === '振替') continue;
@@ -1160,6 +1162,7 @@ async function renderKakeibo() {
   }).join('');
 
   renderDetail(monthRecords);
+  renderTrendChart();
 }
 
 let pieChartInstance = null;
@@ -1224,44 +1227,11 @@ function renderDetail(monthRecords) {
       <span class="detail-name">${escapeHtml(r.name)}${transferNote}</span>
       <span class="detail-cat-tag kcat-${escapeHtml(r.category)}" style="background:${color}22;color:${color}">${escapeHtml(r.category)}</span>
       <span class="detail-amount" style="color:${r.amount<0?'var(--danger)':'inherit'}">${sign}¥${Math.abs(r.amount).toLocaleString()}</span>
-      <button class="btn-delete" onclick="openEditModal('${escapeHtml(r.id||'')}')">✏️</button>
     </div>`;
   }).join('');
 }
 
-// ============================================================
-//  家計簿 — 手動編集モーダル
-// ============================================================
-let editingRecordId = null;
-function openEditModal(id) {
-  const record = kakeiboRecords.find(r => r.id === id);
-  if (!record) return;
-  editingRecordId = id;
-  document.getElementById('edit-name').value = record.name;
-  document.getElementById('edit-amount').value = record.amount;
-  document.getElementById('edit-category').value = record.category;
-  document.getElementById('edit-modal').classList.remove('hidden');
-}
-document.getElementById('btn-modal-cancel').addEventListener('click', () => {
-  document.getElementById('edit-modal').classList.add('hidden');
-});
-document.getElementById('btn-modal-save').addEventListener('click', async () => {
-  const record = kakeiboRecords.find(r => r.id === editingRecordId);
-  if (!record) return;
-  record.name     = document.getElementById('edit-name').value.trim() || record.name;
-  record.amount   = parseInt(document.getElementById('edit-amount').value, 10) || record.amount;
-  record.category = document.getElementById('edit-category').value;
-  await KakeiboStorage.save(kakeiboRecords);
-  document.getElementById('edit-modal').classList.add('hidden');
-  renderKakeibo();
-});
-document.getElementById('btn-modal-delete').addEventListener('click', async () => {
-  if (!confirm('この明細を削除しますか？')) return;
-  kakeiboRecords = kakeiboRecords.filter(r => r.id !== editingRecordId);
-  await KakeiboStorage.save(kakeiboRecords);
-  document.getElementById('edit-modal').classList.add('hidden');
-  renderKakeibo();
-});
+
 
 // ============================================================
 //  家計簿 — CSV取り込み・リセット
@@ -1290,21 +1260,90 @@ document.getElementById('csv-file-input').addEventListener('change', e => {
   reader.readAsArrayBuffer(file);
   e.target.value = '';
 });
-document.getElementById('btn-reset').addEventListener('click', async () => {
-  const pw = window.prompt('パスワードを入力してください');
-  if (pw !== 'reset') { if (pw !== null) alert('パスワードが違います'); return; }
-  if (!confirm('全データを削除します。この操作は元に戻せません。よろしいですか？')) return;
-  kakeiboRecords = [];
-  await KakeiboStorage.save([]);
-  selectedCategory = null; currentMonthIdx = 0;
-  renderKakeibo();
-});
 document.getElementById('btn-prev-month').addEventListener('click', () => {
   if (currentMonthIdx < kakeiboMonths.length-1) { currentMonthIdx++; selectedCategory=null; renderKakeibo(); }
 });
 document.getElementById('btn-next-month').addEventListener('click', () => {
   if (currentMonthIdx > 0) { currentMonthIdx--; selectedCategory=null; renderKakeibo(); }
 });
+
+// カード別フィルタ
+document.getElementById('card-filter').addEventListener('click', e => {
+  const btn = e.target.closest('.card-filter-btn');
+  if (!btn) return;
+  selectedSource = btn.dataset.source;
+  document.querySelectorAll('.card-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedCategory = null;
+  renderKakeibo();
+});
+
+// ============================================================
+//  家計簿 — 月別推移グラフ
+// ============================================================
+let trendChartInstance = null;
+function renderTrendChart() {
+  // 直近6ヶ月分のデータを取得（カードフィルタ適用）
+  const months = kakeiboMonths.slice(0, 6).reverse(); // 古い順に
+  if (months.length < 2) {
+    document.getElementById('kakeibo-trend').style.display = 'none';
+    return;
+  }
+
+  const totals = months.map(m => {
+    const filtered = filterBySource(
+      kakeiboRecords.filter(r => normalizeDate(r.date).startsWith(m) && r.category !== '振替')
+    );
+    return filtered.reduce((sum, r) => sum + r.amount, 0);
+  });
+
+  const labels = months.map(m => parseInt(m.slice(5)) + '月'); // "7月"
+  const canvas = document.getElementById('trend-chart');
+  if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+  trendChartInstance = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '月間支出',
+        data: totals,
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#f97316',
+        pointRadius: 5,
+        pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `¥${ctx.raw.toLocaleString()}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => '¥' + (v >= 10000 ? Math.round(v/10000) + '万' : v.toLocaleString()),
+            font: { size: 11 }
+          },
+          grid: { color: '#e5e7eb' }
+        },
+        x: {
+          ticks: { font: { size: 11 } },
+          grid: { display: false }
+        }
+      },
+      animation: { duration: 400 }
+    }
+  });
+}
 
 // ============================================================
 //  分類設定モーダル
@@ -1314,7 +1353,7 @@ document.getElementById('btn-classify-settings').addEventListener('click', () =>
   document.getElementById('classify-modal').classList.remove('hidden');
 });
 document.getElementById('btn-reclassify').addEventListener('click', async () => {
-  if (!confirm('全明細を現在のキーワード設定で再分類します。手動で変更したカテゴリも上書きされます。よろしいですか？')) return;
+  if (!confirm('全明細を現在のキーワード設定で再分類します。よろしいですか？')) return;
   let count = 0;
   // 重複家賃を削除（rent_プレフィックスで同じIDが複数ないか）
   const rentIds = new Set();
